@@ -16,10 +16,10 @@ class Compound:
     def __init__(self, formula: str, sensible_heat: NDArray[np.float64], heat_of_formation: NDArray[np.float64], logKf: NDArray[np.float64], temperature: NDArray[np.float64] = TEMPERATURE_LIST):
 
         self.__set_formula(formula)
-        self.__set_temp(temperature)
-        self.__set_sh(sensible_heat)
-        self.__set_hf(heat_of_formation)
-        self.__set_logKf(logKf)
+        self.__set_temp_list(temperature)
+        self.__set_sh_list(sensible_heat)
+        self.__set_hf_list(heat_of_formation)
+        self.__set_logKf_list(logKf)
 
     def __set_formula(self, formula: str):
 
@@ -30,67 +30,67 @@ class Compound:
         formula = self.__formula
         return formula
 
-    def __set_temp(self,t: NDArray[np.float64]):
+    def __set_temp_list(self,t: NDArray[np.float64]):
 
         if len(np.shape(t)) != 1:
             raise ValueError("Temperature array should be one-dimensional.")
-        self.__temp = t
+        self.__temp_list = t
 
-    def __get_temp(self) -> NDArray[np.float64]:
+    def __get_temp_list(self) -> NDArray[np.float64]:
 
-        temp = self.__temp
+        temp = self.__temp_list
         return temp
 
-    def __set_sh(self, specific_heat: NDArray[np.float64]):
+    def __set_sh_list(self, specific_heat: NDArray[np.float64]):
 
-        if np.shape(specific_heat) != np.shape(self.__get_temp()):
+        if np.shape(specific_heat) != np.shape(self.__get_temp_list()):
             raise ValueError("List of specific heats has differing length than temperature list.")
-        self.__sh = specific_heat
+        self.__sh_list = specific_heat
 
-    def __get_sh(self) -> NDArray[np.float64]:
+    def __get_sh_list(self) -> NDArray[np.float64]:
 
-        sh = self.__sh
+        sh = self.__sh_list
         return sh
 
-    def __set_hf(self, hf: NDArray[np.float64]):
+    def __set_hf_list(self, hf: NDArray[np.float64]):
 
-        if np.shape(hf) != np.shape(self.__get_temp()):
+        if np.shape(hf) != np.shape(self.__get_temp_list()):
             raise ValueError("List of heats of formation has differing length than temperature list.")
-        self.__hf = hf
+        self.__hf_list = hf
 
-    def __get_hf(self) -> NDArray[np.float64]:
+    def __get_hf_list(self) -> NDArray[np.float64]:
 
-        hf = self.__hf
+        hf = self.__hf_list
         return hf
         
-    def __set_logKf(self, logKf: NDArray[np.float64]):
+    def __set_logKf_list(self, logKf: NDArray[np.float64]):
 
-        if np.shape(logKf) != np.shape(self.__get_temp()):
+        if np.shape(logKf) != np.shape(self.__get_temp_list()):
             raise ValueError("List of log Kf values has differing length than temperature list.")
-        self.__logKf = logKf
+        self.__logKf_list = logKf
 
-    def __get_logKf(self) -> NDArray[np.float64]:
+    def __get_logKf_list(self) -> NDArray[np.float64]:
 
-        logKf = self.__logKf
+        logKf = self.__logKf_list
         return logKf
 
     def hf_table(self, transpose: bool = False) -> NDArray[np.float64]:
 
-        table = np.stack((self.__get_temp(), self.__get_hf()))
+        table = np.stack((self.__get_temp_list(), self.__get_hf_list()))
         if transpose:
             table = np.transpose(table)
         return table
     
     def sh_table(self, transpose: bool = False) -> NDArray[np.float64]: # Output is formatted odd. Investigate
 
-        table = np.stack((self.__get_temp(), self.__get_sh()))
+        table = np.stack((self.__get_temp_list(), self.__get_sh_list()))
         if transpose:
             table = np.transpose(table)
         return table
     
     def logKf_table(self, transpose: bool = False) -> NDArray[np.float64]:
 
-        table = np.stack((self.__get_temp(), self.__get_logKf()))
+        table = np.stack((self.__get_temp_list(), self.__get_logKf_list()))
         if transpose:
             table = np.transpose(table)
         return table
