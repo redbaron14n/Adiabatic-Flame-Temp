@@ -8,6 +8,7 @@
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.interpolate import make_interp_spline
 
 TEMPERATURE_LIST = np.array([0, 100, 200, 250, 298.15, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900, 3000, 3100, 3200, 3300, 3400, 3500, 3600, 3700, 3800, 3900, 4000, 4100, 4200, 4300, 4400, 4500, 4600, 4700, 4800, 4900, 5000, 5100, 5200, 5300, 5400, 5500, 5600, 5700, 5800, 5900, 6000])
 
@@ -46,10 +47,16 @@ class Compound:
         if np.shape(specific_heat) != np.shape(self.__get_temp_list()):
             raise ValueError("List of specific heats has differing length than temperature list.")
         self.__sh_list = specific_heat
+        self.__sh_function = make_interp_spline(self.__get_temp_list(), specific_heat, k=1)
 
     def __get_sh_list(self) -> NDArray[np.float64]:
 
         sh = self.__sh_list
+        return sh
+    
+    def sh(self, temperature: float) -> float:
+
+        sh = self.__sh_function(temperature)
         return sh
 
     def __set_hf_list(self, hf: NDArray[np.float64]):
@@ -57,10 +64,16 @@ class Compound:
         if np.shape(hf) != np.shape(self.__get_temp_list()):
             raise ValueError("List of heats of formation has differing length than temperature list.")
         self.__hf_list = hf
+        self.__hf_function = make_interp_spline(self.__get_temp_list(), hf, k=1)
 
     def __get_hf_list(self) -> NDArray[np.float64]:
 
         hf = self.__hf_list
+        return hf
+    
+    def hf(self, temperature: float) -> float:
+
+        hf = self.__hf_function(temperature)
         return hf
         
     def __set_logKf_list(self, logKf: NDArray[np.float64]):
@@ -68,11 +81,17 @@ class Compound:
         if np.shape(logKf) != np.shape(self.__get_temp_list()):
             raise ValueError("List of log Kf values has differing length than temperature list.")
         self.__logKf_list = logKf
+        # self.__logKf_function = make_interp_spline(self.__get_temp_list(), logKf, k=1) # ADDRESS INF VALUE
 
     def __get_logKf_list(self) -> NDArray[np.float64]:
 
         logKf = self.__logKf_list
         return logKf
+
+    # def logKf(self, temperature: float) -> float:
+
+    #     logKf = self.__logKf_function(temperature)
+    #     return logKf
 
     def hf_table(self, transpose: bool = False) -> NDArray[np.float64]:
 
