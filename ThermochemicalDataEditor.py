@@ -80,6 +80,20 @@ class Compound:
         if transpose:
             table = np.transpose(table)
         return table
+    
+    def sh_table(self, transpose: bool = False) -> NDArray[np.float64]: # Output is formatted odd. Investigate
+
+        table = np.stack((self.__get_temp(), self.__get_sh()))
+        if transpose:
+            table = np.transpose(table)
+        return table
+    
+    def logKf_table(self, transpose: bool = False) -> NDArray[np.float64]:
+
+        table = np.stack((self.__get_temp(), self.__get_logKf()))
+        if transpose:
+            table = np.transpose(table)
+        return table
 
 ##### Methane (CH4) #####
 
