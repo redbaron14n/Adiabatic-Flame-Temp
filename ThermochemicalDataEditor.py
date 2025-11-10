@@ -81,17 +81,22 @@ class Compound:
         if np.shape(logKf) != np.shape(self.__get_temp_list()):
             raise ValueError("List of log Kf values has differing length than temperature list.")
         self.__logKf_list = logKf
-        # self.__logKf_function = make_interp_spline(self.__get_temp_list(), logKf, k=1) # ADDRESS INF VALUE
+
+        logKf_finite = np.copy(logKf)
+        finite_mask = np.isfinite(logKf_finite) # Masks out infinite values
+        max_finite = np.max(logKf_finite[finite_mask]) # Finds maximum finite value
+        logKf_finite[~finite_mask] = max_finite * 1e6 # Replaces infinite values with 1000000 * max finite value
+        self.__logKf_function = make_interp_spline(self.__get_temp_list(), logKf_finite, k=1)
 
     def __get_logKf_list(self) -> NDArray[np.float64]:
 
         logKf = self.__logKf_list
         return logKf
 
-    # def logKf(self, temperature: float) -> float:
+    def logKf(self, temperature: float) -> float:
 
-    #     logKf = self.__logKf_function(temperature)
-    #     return logKf
+        logKf = self.__logKf_function(temperature)
+        return logKf
 
     def hf_table(self, transpose: bool = False) -> NDArray[np.float64]:
 
@@ -100,7 +105,7 @@ class Compound:
             table = np.transpose(table)
         return table
     
-    def sh_table(self, transpose: bool = False) -> NDArray[np.float64]: # Output is formatted odd. Investigate
+    def sh_table(self, transpose: bool = False) -> NDArray[np.float64]:
 
         table = np.stack((self.__get_temp_list(), self.__get_sh_list()))
         if transpose:
