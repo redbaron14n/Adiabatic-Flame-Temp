@@ -58,12 +58,26 @@ class Compound:
 
         self.data_table = TD[TD["Compound"] == self.__id]
         self.__set_temperatures(self.data_table["T"])
+        self.__set_SH(self.data_table["SH"])
+        self.__set_Hf(self.data_table["Hf"])
         self.__set_logKf(self.data_table["logKf"])
 
     def __set_temperatures(self, list: pd.Series):
 
         temp_array = list.to_numpy(dtype=np.float64)
         self.__temperatures = temp_array
+
+    def __set_SH(self, list: pd.Series):
+
+        SH_array = list.to_numpy()
+        self.__SH_list = SH_array
+        self.__SH_function = make_interp_spline(self.get_temperatures(), SH_array, k=1)
+
+    def __set_Hf(self, list: pd.Series):
+
+        Hf_array = list.to_numpy()
+        self.__Hf_list = Hf_array
+        self.__Hf_function = make_interp_spline(self.get_temperatures(), Hf_array, k=1)
 
     def __set_logKf(self, list: pd.Series):
         
@@ -79,16 +93,48 @@ class Compound:
         temp_array = self.__temperatures
         return temp_array
     
+    def get_SH_list(self) -> NDArray[np.float64]:
+
+        SH_array = self.__SH_list
+        return SH_array
+    
+    def get_Hf_list(self) -> NDArray[np.float64]:
+
+        Hf_array = self.__Hf_list
+        return Hf_array
+    
     def get_logKf_list(self) -> NDArray[np.float64]:
 
         logKf_list = self.__logKf_list
         return logKf_list
     
+    ##### Functional Methods #####
+
+    def SH(self, temperature: float) -> float:
+
+        """
+        Returns the sensible heat (kJ/mol) of the compound at a given temperature (K).
+        """
+
+        value = self.__SH_function(temperature)
+        return value
+    
+    def Hf(self, temperature: float) -> float:
+
+        """
+        Returns the heat of formation (kJ/mol) of the compound at a given temperature (K).
+        """
+
+        value = self.__Hf_function(temperature)
+        return value
+    
     def logKf(self, temperature: float) -> float:
+
+        """
+        Returns the logKf of the compound at a given temperature (K).
+        """
 
         value = self.__logKf_function(temperature)
         return value
 
 Methane = Compound("Methane", "CH4", "Methane")
-print(Methane.get_logKf_list())
-print(Methane.logKf(634))
