@@ -9,9 +9,27 @@
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
+from scipy.interpolate import make_interp_spline
 
 DATA_FILE = "thermochemical_data.csv"
 TD = pd.read_csv(DATA_FILE)
+
+def get_finite_list(list: NDArray) -> NDArray:
+
+    finite_list = np.copy(list)
+    finite_mask = np.isfinite(list)
+    max_finite = np.max(list[finite_mask])
+    finite_list[~finite_mask] = max_finite * 1e6
+    return finite_list
+
+def get_numerical(list: NDArray) -> tuple[NDArray, NDArray]:
+
+    numerical_list = np.copy(list)
+    for i in range(len(list)):
+        if list[i] == "inf":
+            numerical_list[i] = np.inf
+    finite_list = get_finite_list(numerical_list)
+    return numerical_list, finite_list
 
 class Compound:
 
@@ -50,18 +68,27 @@ class Compound:
     def __set_logKf(self, list: pd.Series):
         
         logKf_array = list.to_numpy()
-        logKF_array, logKf_finite_array = get_numerical(logKF_array)
-        self.__logKf_list = logKF_array
-        self.logKf_function() # WIP
+        logKf_array, logKf_finite_array = get_numerical(logKf_array)
+        self.__logKf_list = logKf_array
+        self.__logKf_function = make_interp_spline(self.get_temperatures(), logKf_finite_array, k=1)
 
     ##### Attribute Methods #####
-
-
 
     def get_temperatures(self) -> NDArray[np.float64]:
 
         temp_array = self.__temperatures
         return temp_array
+    
+    def get_logKf_list(self) -> NDArray[np.float64]:
+
+        logKf_list = self.__logKf_list
+        return logKf_list
+    
+    def logKf(self, temperature: float) -> float:
+
+        value = self.__logKf_function(temperature)
+        return value
 
 Methane = Compound("Methane", "CH4", "Methane")
-print(Methane.data_table)
+print(Methane.get_logKf_list())
+print(Methane.logKf(634))
