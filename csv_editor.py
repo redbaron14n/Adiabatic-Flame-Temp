@@ -6,34 +6,61 @@
 # CSV Editor File
 # ###################
 
+import csv
 from pathlib import Path
 
-FOLDER_PATH = "newdata"
 REQUIRED_HEADER = ["Compound", "T", "Cf", "S", "(G-H)/T", "SH", "Hf", "G", "logKf"]
 
-def get_csv_files(path: str) -> list[Path]:
+def get_csv_files() -> list[Path]:
 
-    folder = Path(path)
-    csv_files = [f for f  in folder.iterdir() if f.suffix == ".csv"]
+    folder = Path()
+    csv_files = []
+    for file in folder.iterdir():
+        if ((file.suffix == ".csv") and (file.name != "thermochemical_data.csv")):
+            csv_files.append(file)
     return csv_files
 
-def filter_csv_files(files: list[Path], required_header: list[str]) -> list[Path]:
+def select_file(csv_files: list[Path]) -> Path | None:
 
-    filtered_files = []
-    for file in files:
-        with open(file, 'r') as f:
-            header = f.readline().strip().split(',')
-            if header == required_header:
-                filtered_files.append(file)
+    for i, file in enumerate(csv_files, 1):
+        print(f"{i}: {file.name}")
+    print("Q: Cancel")
+    invalid = True
+    while invalid:
+        choice = input("Select a file by number: ")
+        try:
+            index = int(choice) - 1
+            if 0 <= index < len(csv_files):
+                return csv_files[index]
             else:
-                print(f"File {file} skipped due to incorrect header.")
-    return filtered_files
+                print("Invalid input. Please enter a number or 'Q' to cancel.")
+        except:
+            if choice.lower() == "q":
+                return None
+            else:
+                print("Invalid input. Please enter a number or 'Q' to cancel.")
+
+def row_validation(file) -> bool: # Figure out class of open file
+
+    reader = csv.reader(file)
+    for row_index, row, in enumerate(reader, start=1):
+        # WIP
+
+def validate_file(file_path: Path) -> bool:
+
+    valid_file = True
+    with open(file_path, "r") as file:
+        if file.readline().strip().split(",") != REQUIRED_HEADER:
+            valid_file = False
+        elif row_validation(file) == False:
+            valid_file = False
+    return valid_file
 
 def main():
 
-    csv_files = get_csv_files(FOLDER_PATH)
+    csv_files = get_csv_files()
     print(csv_files)
-    csv_files = filter_csv_files(csv_files, REQUIRED_HEADER)
+    csv_file = select_file(csv_files)
     print(csv_files)
 
 main()
