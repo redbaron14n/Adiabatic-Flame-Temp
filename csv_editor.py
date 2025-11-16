@@ -18,7 +18,7 @@ def get_csv_files() -> list[Path]:
     folder = Path()
     csv_files = []
     for file in folder.iterdir():
-        if ((file.suffix == ".csv") and (file.name != "thermochemical_data.csv")):
+        if ((file.suffix == ".csv") and (file.name != MASTER_FILE)):
             csv_files.append(file)
     return csv_files
 
@@ -104,4 +104,33 @@ def merge_csv():
         csv_file.unlink()
         print(f"{csv_file.name} deleted.")
 
-merge_csv() # Temp call for testing
+def extract_csv():
+
+    compound_name = input("Enter the compound to extract data for: ")
+    master = Path(MASTER_FILE)
+    if not master.exists():
+        print("Master file does not exist.")
+        return
+    df = pd.read_csv(master)
+    compound_df = df[df["Compound"] == compound_name]
+    if compound_df.empty:
+        print("No data found for that compound.")
+        return
+    output_file = f"{compound_name.replace(" ", "_")}.csv"
+    compound_df.to_csv(output_file, index=False)
+    print(f"Saved to {output_file}")
+
+def main():
+
+    while True:
+        choice = input("Select an option:\n1. Merge CSV\n2. Extract CSV\nQ. Quit\n> ")
+        if choice == "1":
+            merge_csv()
+        elif choice == "2":
+            extract_csv()
+        elif choice.lower() == "q":
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+main()
