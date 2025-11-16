@@ -59,8 +59,49 @@ def validate_file(df: pd.DataFrame, file_name: str) -> bool:
             if pd.isna(val):
                 print(f"Invalid value (NaN) in {file_name} at row {i}, column {col}")
                 valid = False
-            elif not np.isinf(val):
+            elif not (np.isfinite(val) or np.isinf(val)):
                 print(f"Invalid numeric value in {file_name} at row {i}, column {col}")
                 valid = False
 
     return valid
+
+def merge_csv():
+
+    csv_files = get_csv_files()
+    csv_file = select_file(csv_files)
+    if csv_file is None:
+        print("No file selected.")
+        return
+    
+    new_df = pd.read_csv(csv_file)
+    if not validate_file(new_df, csv_file.name):
+        print("File validation failed.")
+        return
+    
+    master = Path(MASTER_FILE)
+    if master.exists():
+        master_df = pd.read_csv(master)
+    else:
+        master_df = pd.DataFrame(columns=REQUIRED_HEADER) # Creates DataFrame with header to become master file later in process
+
+    new_compounds = set(new_df["Compound"])
+    conflicts = new_compounds.intersection(set(master_df["Compound"]))
+    if conflicts:
+        print(f"The following compounds already exist in the master file:")
+        for c in conflicts:
+            print(f" - {c}")
+        confirm = input("Replace existing data? (y/n): ")
+        if confirm != "y":
+            print("Merge cancelled.")
+            return
+        master_df = master_df[~master_df["Compound"].isin(conflicts)]
+    merged_df = pd.concat([master_df, new_df], ignore_index=True)
+    merged_df.to_csv(master, index=False)
+    print("Merge completed successfully.")
+
+    delete = input(f"Delete {csv_file.name}? (y/n): ")
+    if delete.lower() == "y":
+        csv_file.unlink()
+        print(f"{csv_file.name} deleted.")
+
+merge_csv() # Temp call for testing
