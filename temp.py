@@ -6,6 +6,7 @@
 # Thermochemical Data File Editor
 # ###################
 
+from chempy import balance_stoichiometry
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
@@ -136,5 +137,44 @@ class Compound:
 
         value = self.__logKf_function(temperature)
         return value
+    
+class Reaction:
+
+    def __init__(self, reactants: set[Compound]): # Potentially arguments for reaction complexity
+
+        """
+        Initializes a Reaction object given a set of reactant Compounds.
+
+        @attrib reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
+        @attrib products : set[Compound] - Set of Compound objects representing the products of the reaction.
+        @attrib stoichiometry : tuple[dict[str, int], dict[str, int]] - Tuple containing two dictionaries representing the stoichiometric coefficients of reactants and products.
+        """
+
+        self.__set_reactants(reactants)
+        self.__set_products()
+        self.__set_stoichiometry()
+
+    def __set_reactants(self, reactants: set[Compound]):
+
+        self.reactants = reactants
+
+    def __set_products(self):
+
+        self.products = products_from_reactants(self.reactants)
+
+    def __set_stoichiometry(self):
+
+        reactant_strs = {r.formula for r in self.reactants}
+        product_strs = {p.formula for p in self.products}
+        balanced_reactants, balanced_products = balance_stoichiometry(reactant_strs, product_strs)
+        self.stoichiometry = (balanced_reactants, balanced_products)
+
+def products_from_reactants(reactants: set[Compound]) -> set[Compound]: # Placeholder function for potential reaction product generation
+
+    if reactants == {Methane, Oxygen}:
+        products = {CarbonDioxide, Water}
+    else:
+        raise NotImplementedError("Reaction product generation not implemented for given reactants.")
+    return products
 
 Methane = Compound("Methane", "CH4", "Methane")
