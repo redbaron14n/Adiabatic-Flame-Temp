@@ -177,4 +177,7 @@ def products_from_reactants(reactants: set[Compound]) -> set[Compound]: # Placeh
         raise NotImplementedError("Reaction product generation not implemented for given reactants.")
     return products
 
+CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
 Methane = Compound("Methane", "CH4", "Methane")
+Oxygen = Compound("Oxygen", "O2", "Oxygen")
+Water = Compound("Water", "H2O", "Water")
