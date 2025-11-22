@@ -146,10 +146,13 @@ class Compound:
     
 class Reaction:
 
-    def __init__(self, reactants: set[Compound]): # Potentially arguments for reaction complexity
+    def __init__(self, reactants: set[Compound], temperatures: dict[Compound, float]): # Potentially arguments for reaction complexity
 
         """
         Initializes a Reaction object given a set of reactant Compounds.
+
+        @param reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
+        @param temperatures : dict[Compound, float] - Dictionary mapping each reactant Compound to its entry temperature (K).
 
         @attrib reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
         @attrib products : set[Compound] - Set of Compound objects representing the products of the reaction.
@@ -159,6 +162,7 @@ class Reaction:
         self.__set_reactants(reactants)
         self.__set_products()
         self.__set_stoichiometry()
+        self.__set_temperatures(temperatures)
 
     def __set_reactants(self, reactants: set[Compound]):
 
@@ -174,6 +178,12 @@ class Reaction:
         product_strs = {p.formula for p in self.products}
         balanced_reactants, balanced_products = balance_stoichiometry(reactant_strs, product_strs)
         self.stoichiometry = (balanced_reactants, balanced_products)
+
+    def __set_temperatures(self, temperatures: dict[Compound, float]):
+
+        if len(temperatures) != len(self.reactants):
+            raise ValueError("Number of temperatures provided does not match number of reactants.")
+        self.temperatures = temperatures
 
 def products_from_reactants(reactants: set[Compound]) -> set[Compound]: # Placeholder function for potential reaction product generation
 
