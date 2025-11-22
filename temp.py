@@ -10,7 +10,7 @@ from chempy import balance_stoichiometry
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
-from scipy.interpolate import make_interp_spline
+from scipy.interpolate import BSpline, make_interp_spline
 
 DATA_FILE = "thermochemical_data.csv"
 TD = pd.read_csv(DATA_FILE)
@@ -167,6 +167,7 @@ class Reaction:
         self.__set_temperatures(temperatures)
         self.__calc_Hf()
         self.__calc_SH_of_reactants()
+        self.__create_SH_products_function()
 
     def __set_reactants(self, reactants: set[Compound]):
 
@@ -217,6 +218,23 @@ class Reaction:
             delta_Hf += coeff * product.stdHf
         self.delta_Hf = delta_Hf
 
+    def __create_SH_products_function(self): ### NOT WORKING AS INTENDED.
+
+        common_temps = set()
+        for product in self.products:
+            temps = [round(t, 6) for t in product.get_temperatures()]
+            common_temps.update(temps)
+        common_temps = sorted(common_temps)
+        SH_functions = []
+        stoich_products = self.stoichiometry[1]
+        for product in self.products:
+            stoich_coeff = stoich_products[product.formula]
+            SH_vals = stoich_coeff * np.array([product.SH(t) for t in common_temps])
+            function = make_interp_spline(common_temps, SH_vals, k=1)
+            SH_functions.append(function)
+        spline_coeffs = sum(f.c for f in SH_functions)
+        self.SH_products_function = BSpline(SH_functions[0].t, spline_coeffs, k=1)
+
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
     if (reactants == {Methane, Oxygen}) and not dissociation:
@@ -233,3 +251,4 @@ Water = Compound("Water", "H2O", "Water")
 test_reaction = Reaction({Methane, Oxygen}, {Methane: 400, Oxygen: 500})
 print(test_reaction.stoichiometry)
 print(test_reaction.delta_Hf)
+print(test_reaction.SH_products_function(4500)) # Values have high degree of error. Must troubleshoot
