@@ -146,13 +146,14 @@ class Compound:
     
 class Reaction:
 
-    def __init__(self, reactants: set[Compound], temperatures: dict[Compound, float]): # Potentially arguments for reaction complexity
+    def __init__(self, reactants: set[Compound], temperatures: dict[Compound, float], dissociation: bool = False): # Potentially arguments for reaction complexity
 
         """
         Initializes a Reaction object given a set of reactant Compounds.
 
         @param reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
         @param temperatures : dict[Compound, float] - Dictionary mapping each reactant Compound to its entry temperature (K).
+        @param dissociation : bool - Flag indicating whether to consider dissociation in the reaction (default is False).
 
         @attrib reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
         @attrib products : set[Compound] - Set of Compound objects representing the products of the reaction.
@@ -160,7 +161,7 @@ class Reaction:
         """
 
         self.__set_reactants(reactants)
-        self.__set_products()
+        self.__set_products(dissociation)
         self.__set_stoichiometry()
         self.__set_temperatures(temperatures)
 
@@ -168,9 +169,9 @@ class Reaction:
 
         self.reactants = reactants
 
-    def __set_products(self):
+    def __set_products(self, dissociation: bool):
 
-        self.products = products_from_reactants(self.reactants)
+        self.products = products_from_reactants(self.reactants, dissociation)
 
     def __set_stoichiometry(self):
 
@@ -185,9 +186,9 @@ class Reaction:
             raise ValueError("Number of temperatures provided does not match number of reactants.")
         self.temperatures = temperatures
 
-def products_from_reactants(reactants: set[Compound]) -> set[Compound]: # Placeholder function for potential reaction product generation
+def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
-    if reactants == {Methane, Oxygen}:
+    if (reactants == {Methane, Oxygen}) and not dissociation:
         products = {CarbonDioxide, Water}
     else:
         raise NotImplementedError("Reaction product generation not implemented for given reactants.")
