@@ -36,12 +36,13 @@ class Compound:
 
     ##### Initialization Methods #####
 
-    def __init__(self, name: str, formula: str, id: str):
+    def __init__(self, name: str, formula: str, id: str, ref_temp: float = 298.15):
 
         self.__set_name(name)
         self.__set_formula(formula)
         self.__set_id(id)
         self.__set_data(id)
+        self.__set_ref_temp(ref_temp)
 
     def __set_name(self, name: str):
 
@@ -86,6 +87,11 @@ class Compound:
         logKf_array, logKf_finite_array = get_numerical(logKf_array)
         self.__logKf_list = logKf_array
         self.__logKf_function = make_interp_spline(self.get_temperatures(), logKf_finite_array, k=1)
+
+    def __set_ref_temp(self, ref_temp: float):
+
+        self.ref_temp = ref_temp
+        self.stdHf = self.Hf(ref_temp)
 
     ##### Attribute Methods #####
 
