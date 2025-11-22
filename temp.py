@@ -158,12 +158,15 @@ class Reaction:
         @attrib reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
         @attrib products : set[Compound] - Set of Compound objects representing the products of the reaction.
         @attrib stoichiometry : tuple[dict[str, int], dict[str, int]] - Tuple containing two dictionaries representing the stoichiometric coefficients of reactants and products.
+        @attrib delta_Hf : float - Total formation enthalpy change (kJ) for the reaction.
         """
 
         self.__set_reactants(reactants)
         self.__set_products(dissociation)
         self.__set_stoichiometry()
         self.__set_temperatures(temperatures)
+        self.__calc_Hf()
+        self.__calc_SH_of_reactants()
 
     def __set_reactants(self, reactants: set[Compound]):
 
@@ -186,6 +189,34 @@ class Reaction:
             raise ValueError("Number of temperatures provided does not match number of reactants.")
         self.temperatures = temperatures
 
+    def __calc_SH_of_reactants(self):
+
+        """
+        Calculates the total sensible heat (kJ) of the reactants at their respective entry temperatures.
+        """
+
+        total_SH = 0.0
+        for reactant in self.reactants:
+            coeff = self.stoichiometry[0][reactant.formula]
+            temp = self.temperatures[reactant]
+            total_SH += coeff * reactant.SH(temp)
+        self.__total_SH_reactants = total_SH
+
+    def __calc_Hf(self):
+
+        """
+        Calculates the total formation enthalpy change (kJ) for the reaction based on the heats of formation of reactants and products at their respective temperatures.
+        """
+
+        delta_Hf = 0.0
+        for reactant in self.reactants:
+            coeff = self.stoichiometry[0][reactant.formula]
+            delta_Hf -= coeff * reactant.stdHf
+        for product in self.products:
+            coeff = self.stoichiometry[1][product.formula]
+            delta_Hf += coeff * product.stdHf
+        self.delta_Hf = delta_Hf
+
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
     if (reactants == {Methane, Oxygen}) and not dissociation:
@@ -198,3 +229,7 @@ CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
 Methane = Compound("Methane", "CH4", "Methane")
 Oxygen = Compound("Oxygen", "O2", "Oxygen")
 Water = Compound("Water", "H2O", "Water")
+
+test_reaction = Reaction({Methane, Oxygen}, {Methane: 400, Oxygen: 500})
+print(test_reaction.stoichiometry)
+print(test_reaction.delta_Hf)
