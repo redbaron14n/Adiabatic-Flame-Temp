@@ -218,7 +218,7 @@ class Reaction:
             delta_Hf += coeff * product.stdHf
         self.delta_Hf = delta_Hf
 
-    def __create_SH_products_function(self): ### NOT WORKING AS INTENDED.
+    def __create_SH_products_function(self):
 
         common_temps = set()
         for product in self.products:
@@ -247,8 +247,3 @@ CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
 Methane = Compound("Methane", "CH4", "Methane")
 Oxygen = Compound("Oxygen", "O2", "Oxygen")
 Water = Compound("Water", "H2O", "Water")
-
-test_reaction = Reaction({Methane, Oxygen}, {Methane: 400, Oxygen: 500})
-print(test_reaction.stoichiometry)
-print(test_reaction.delta_Hf)
-print(test_reaction.SH_products_function(4500)) # Values have high degree of error. Must troubleshoot
