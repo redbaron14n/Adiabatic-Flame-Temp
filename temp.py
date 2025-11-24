@@ -288,7 +288,7 @@ class Reaction:
     
     def __energy_balance(self, temperature: float, final_amounts: dict[Compound, float]) -> float:
 
-        residual = self.__calc_SH_products(final_amounts, temperature) - self.__calc_SH_reactants(final_amounts) + self.__calc_Hf(final_amounts)
+        residual = float(self.__calc_SH_products(final_amounts, temperature) - self.__calc_SH_reactants(final_amounts) + self.__calc_Hf(final_amounts))
         return residual
     
     def __get_temperature_bounds(self,) -> tuple[float, float]:
@@ -306,8 +306,11 @@ class Reaction:
         extent = self.__find_extent_of_reaction(concentrations)
         final_amounts = self.__compute_final_species_amounts(concentrations, extent)
         T_min, T_max = self.__get_temperature_bounds()
-        result = brentq(self.__energy_balance, T_min, T_max, args=(final_amounts,))
-        flame_temp = result[0] if isinstance(result, tuple) else result
+        if self.__energy_balance(T_min, final_amounts) * self.__energy_balance(T_max, final_amounts) > 0: # No root in bounds (flame temp higher than max)
+            flame_temp = np.nan
+        else:
+            result = brentq(self.__energy_balance, T_min, T_max, args=(final_amounts,))
+            flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
 
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
@@ -325,4 +328,4 @@ Water = Compound("Water", "H2O", "Water")
 
 test_reaction = Reaction({Methane, Oxygen}, {Methane: 300.0, Oxygen: 300.0}, dissociation=False)
 flame_temp = test_reaction.calc_flame_temp({Methane: 0.2, Oxygen: 0.8})
-print(flame_temp)
+print(f"Calculated Adiabatic Flame Temperature: {flame_temp:.2f} K")
