@@ -166,6 +166,7 @@ class Reaction:
         self.__set_products(dissociation)
         self.__set_stoichiometry()
         self.__set_temperatures(temperatures)
+        self.__set_temperature_bounds()
 
     def __set_reactants(self, reactants: set[Compound]):
 
@@ -233,15 +234,26 @@ class Reaction:
     #     spline_coeffs = sum(f.c for f in SH_functions)
     #     self.SH_products_function = BSpline(SH_functions[0].t, spline_coeffs, k=1)
 
-    def __validate_concentrations(self, concentrations: dict[Compound, float]):
+    def __validate_reactants(self, compounds: set[Compound]):
 
-        if concentrations.keys() != self.reactants:
-            raise ValueError("Concentration keys do not match reactants.")
-        elif not np.isclose(sum(concentrations.values()), 1.0):
+        reactant_set = set(self.reactants)
+        if compounds != reactant_set:
+            missing = reactant_set - compounds
+            extra = compounds - reactant_set
+            raise ValueError(f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}")
+
+    def __validate_concentrations(self, concentrations: dict[Compound, float], variable_compound: Compound | None = None):
+
+        if variable_compound is not None:
+            compounds = set(concentrations.keys()) | {variable_compound}
+        else:
+            compounds = set(concentrations.keys())
+        self.__validate_reactants(compounds)
+        if not np.isclose(sum(concentrations.values()), 1.0):
             raise ValueError("Concentrations must sum to 1.")
         elif any(c <= 0 for c in concentrations.values()):
             raise ValueError("Concentrations must be greater than 0")
-        elif any(c >= 1 for c in concentrations.values()):
+        elif (len(concentrations) != 1) and any(c >= 1 for c in concentrations.values()):
             raise ValueError("Individual concentrations must be less than 1.")
     
     def __find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
@@ -291,25 +303,25 @@ class Reaction:
         residual = float(self.__calc_SH_products(final_amounts, temperature) - self.__calc_SH_reactants(final_amounts) + self.__calc_Hf(final_amounts))
         return residual
     
-    def __get_temperature_bounds(self,) -> tuple[float, float]:
+    def __set_temperature_bounds(self):
 
         min_temp = 0.0
         max_temp = np.inf
         for component in self.reactants.union(self.products):
             min_temp = max(min_temp, np.min(component.get_temperatures()))
             max_temp = min(max_temp, np.max(component.get_temperatures()))
-        return min_temp, max_temp
+        self.__min_temp = min_temp
+        self.__max_temp = max_temp
     
     def calc_flame_temp(self, concentrations: dict[Compound, float]) -> float:
 
         self.__validate_concentrations(concentrations)
         extent = self.__find_extent_of_reaction(concentrations)
         final_amounts = self.__compute_final_species_amounts(concentrations, extent)
-        T_min, T_max = self.__get_temperature_bounds()
-        if self.__energy_balance(T_min, final_amounts) * self.__energy_balance(T_max, final_amounts) > 0: # No root in bounds (flame temp higher than max)
+        if self.__energy_balance(self.__min_temp, final_amounts) * self.__energy_balance(self.__max_temp, final_amounts) > 0: # No root in bounds (flame temp higher than max)
             flame_temp = np.nan
         else:
-            result = brentq(self.__energy_balance, T_min, T_max, args=(final_amounts,))
+            result = brentq(self.__energy_balance, self.__min_temp, self.__max_temp, args=(final_amounts,))
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
 
