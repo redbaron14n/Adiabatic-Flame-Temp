@@ -242,13 +242,9 @@ class Reaction:
             extra = compounds - reactant_set
             raise ValueError(f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}")
 
-    def __validate_concentrations(self, concentrations: dict[Compound, float], variable_compound: Compound | None = None):
+    def __validate_concentrations(self, concentrations: dict[Compound, float]):
 
-        if variable_compound is not None:
-            compounds = set(concentrations.keys()) | {variable_compound}
-        else:
-            compounds = set(concentrations.keys())
-        self.__validate_reactants(compounds)
+        self.__validate_reactants(set(concentrations.keys()))
         if not np.isclose(sum(concentrations.values()), 1.0):
             raise ValueError("Concentrations must sum to 1.")
         elif any(c <= 0 for c in concentrations.values()):
@@ -324,6 +320,24 @@ class Reaction:
             result = brentq(self.__energy_balance, self.__min_temp, self.__max_temp, args=(final_amounts,))
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
+    
+    def __generate_concentrations(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> list[dict[Compound, float]]:
+        
+        self.__validate_concentrations(base_concentrations)
+        delta_x = 1.0 / (resolution + 1) # Avoid 0 and 1 concentrations while maintaining resolution
+        dependent_compounds = self.reactants - {variable_compound}
+        total_dependent_conc = sum(base_concentrations[c] for c in dependent_compounds)
+        concentration_list = []
+        x_val = delta_x
+        while x_val < 1.0:
+            conc_dict = {variable_compound: x_val}
+            for compound in dependent_compounds:
+                base_conc = base_concentrations[compound]
+                adjusted_conc = base_conc * (1.0 - x_val) / total_dependent_conc
+                conc_dict[compound] = adjusted_conc
+            concentration_list.append(conc_dict)
+            x_val += delta_x
+        return concentration_list
 
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
