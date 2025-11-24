@@ -10,7 +10,7 @@ from chempy import balance_stoichiometry
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
-from scipy.interpolate import BSpline, make_interp_spline
+from scipy.interpolate import make_interp_spline
 from scipy.optimize import brentq
 
 DATA_FILE = "thermochemical_data.csv"
@@ -42,7 +42,7 @@ class Compound:
         self.__set_name(name)
         self.__set_formula(formula)
         self.__set_id(id)
-        self.__set_data(id)
+        self.__set_data()
         self.__set_ref_temp(ref_temp)
 
     def __set_name(self, name: str):
@@ -57,7 +57,7 @@ class Compound:
 
         self.__id = id
 
-    def __set_data(self, id: str):
+    def __set_data(self):
 
         self.data_table = TD[TD["Compound"] == self.__id]
         self.__set_temperatures(self.data_table["T"])
@@ -189,51 +189,6 @@ class Reaction:
             raise ValueError("Number of temperatures provided does not match number of reactants.")
         self.temperatures = temperatures
 
-    # def __calc_SH_of_reactants(self):
-
-    #     """
-    #     Calculates the total sensible heat (kJ) of the reactants at their respective entry temperatures.
-    #     """
-
-    #     total_SH = 0.0
-    #     for reactant in self.reactants:
-    #         coeff = self.stoichiometry[0][reactant.formula]
-    #         temp = self.temperatures[reactant]
-    #         total_SH += coeff * reactant.SH(temp)
-    #     self.__total_SH_reactants = total_SH
-
-    # def __calc_Hf(self):
-
-    #     """
-    #     Calculates the total formation enthalpy change (kJ) for the reaction based on the heats of formation of reactants and products at their respective temperatures.
-    #     """
-
-    #     delta_Hf = 0.0
-    #     for reactant in self.reactants:
-    #         coeff = self.stoichiometry[0][reactant.formula]
-    #         delta_Hf -= coeff * reactant.stdHf
-    #     for product in self.products:
-    #         coeff = self.stoichiometry[1][product.formula]
-    #         delta_Hf += coeff * product.stdHf
-    #     self.delta_Hf = delta_Hf
-
-    # def __create_SH_products_function(self):
-
-    #     common_temps = set()
-    #     for product in self.products:
-    #         temps = [round(t, 6) for t in product.get_temperatures()]
-    #         common_temps.update(temps)
-    #     common_temps = sorted(common_temps)
-    #     SH_functions = []
-    #     stoich_products = self.stoichiometry[1]
-    #     for product in self.products:
-    #         stoich_coeff = stoich_products[product.formula]
-    #         SH_vals = stoich_coeff * np.array([product.SH(t) for t in common_temps])
-    #         function = make_interp_spline(common_temps, SH_vals, k=1)
-    #         SH_functions.append(function)
-    #     spline_coeffs = sum(f.c for f in SH_functions)
-    #     self.SH_products_function = BSpline(SH_functions[0].t, spline_coeffs, k=1)
-
     def __validate_reactants(self, compounds: set[Compound]):
 
         reactant_set = set(self.reactants)
@@ -338,6 +293,19 @@ class Reaction:
             concentration_list.append(conc_dict)
             x_val += delta_x
         return concentration_list
+    
+    def calc_flame_table(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> NDArray[np.float64]:
+
+        concentration_dicts = self.__generate_concentrations(variable_compound, base_concentrations, resolution)
+        x_values = []
+        flame_temps = []
+        for conc_dict in concentration_dicts:
+            x_values.append(conc_dict[variable_compound])
+            flame_temp = self.calc_flame_temp(conc_dict)
+            flame_temps.append(flame_temp)
+        x_values, flame_temps = np.array(x_values), np.array(flame_temps)
+        flame_table = np.stack((x_values, flame_temps))
+        return flame_table
 
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
@@ -351,7 +319,3 @@ CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
 Methane = Compound("Methane", "CH4", "Methane")
 Oxygen = Compound("Oxygen", "O2", "Oxygen")
 Water = Compound("Water", "H2O", "Water")
-
-test_reaction = Reaction({Methane, Oxygen}, {Methane: 300.0, Oxygen: 300.0}, dissociation=False)
-flame_temp = test_reaction.calc_flame_temp({Methane: 0.2, Oxygen: 0.8})
-print(f"Calculated Adiabatic Flame Temperature: {flame_temp:.2f} K")
