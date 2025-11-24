@@ -11,6 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
 from scipy.interpolate import BSpline, make_interp_spline
+from scipy.optimize import brentq
 
 DATA_FILE = "thermochemical_data.csv"
 TD = pd.read_csv(DATA_FILE)
@@ -123,7 +124,7 @@ class Compound:
         Returns the sensible heat (kJ/mol) of the compound at a given temperature (K).
         """
 
-        value = self.__SH_function(temperature)
+        value = float(self.__SH_function(temperature))
         return value
     
     def Hf(self, temperature: float) -> float:
@@ -132,7 +133,7 @@ class Compound:
         Returns the heat of formation (kJ/mol) of the compound at a given temperature (K).
         """
 
-        value = self.__Hf_function(temperature)
+        value = float(self.__Hf_function(temperature))
         return value
     
     def logKf(self, temperature: float) -> float:
@@ -165,9 +166,6 @@ class Reaction:
         self.__set_products(dissociation)
         self.__set_stoichiometry()
         self.__set_temperatures(temperatures)
-        self.__calc_Hf()
-        self.__calc_SH_of_reactants()
-        self.__create_SH_products_function()
 
     def __set_reactants(self, reactants: set[Compound]):
 
@@ -190,50 +188,127 @@ class Reaction:
             raise ValueError("Number of temperatures provided does not match number of reactants.")
         self.temperatures = temperatures
 
-    def __calc_SH_of_reactants(self):
+    # def __calc_SH_of_reactants(self):
 
-        """
-        Calculates the total sensible heat (kJ) of the reactants at their respective entry temperatures.
-        """
+    #     """
+    #     Calculates the total sensible heat (kJ) of the reactants at their respective entry temperatures.
+    #     """
+
+    #     total_SH = 0.0
+    #     for reactant in self.reactants:
+    #         coeff = self.stoichiometry[0][reactant.formula]
+    #         temp = self.temperatures[reactant]
+    #         total_SH += coeff * reactant.SH(temp)
+    #     self.__total_SH_reactants = total_SH
+
+    # def __calc_Hf(self):
+
+    #     """
+    #     Calculates the total formation enthalpy change (kJ) for the reaction based on the heats of formation of reactants and products at their respective temperatures.
+    #     """
+
+    #     delta_Hf = 0.0
+    #     for reactant in self.reactants:
+    #         coeff = self.stoichiometry[0][reactant.formula]
+    #         delta_Hf -= coeff * reactant.stdHf
+    #     for product in self.products:
+    #         coeff = self.stoichiometry[1][product.formula]
+    #         delta_Hf += coeff * product.stdHf
+    #     self.delta_Hf = delta_Hf
+
+    # def __create_SH_products_function(self):
+
+    #     common_temps = set()
+    #     for product in self.products:
+    #         temps = [round(t, 6) for t in product.get_temperatures()]
+    #         common_temps.update(temps)
+    #     common_temps = sorted(common_temps)
+    #     SH_functions = []
+    #     stoich_products = self.stoichiometry[1]
+    #     for product in self.products:
+    #         stoich_coeff = stoich_products[product.formula]
+    #         SH_vals = stoich_coeff * np.array([product.SH(t) for t in common_temps])
+    #         function = make_interp_spline(common_temps, SH_vals, k=1)
+    #         SH_functions.append(function)
+    #     spline_coeffs = sum(f.c for f in SH_functions)
+    #     self.SH_products_function = BSpline(SH_functions[0].t, spline_coeffs, k=1)
+
+    def __validate_concentrations(self, concentrations: dict[Compound, float]):
+
+        if concentrations.keys() != self.reactants:
+            raise ValueError("Concentration keys do not match reactants.")
+        elif not np.isclose(sum(concentrations.values()), 1.0):
+            raise ValueError("Concentrations must sum to 1.")
+        elif any(c <= 0 for c in concentrations.values()):
+            raise ValueError("Concentrations must be greater than 0")
+        elif any(c >= 1 for c in concentrations.values()):
+            raise ValueError("Individual concentrations must be less than 1.")
+    
+    def __find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
+
+        weighted_conc = {c: concentrations[c] / self.stoichiometry[0][c.formula] for c in self.reactants}
+        extent = min(weighted_conc.values())
+        return extent
+    
+    def __compute_final_species_amounts(self, concentrations: dict[Compound, float], extent: float) -> dict[Compound, float]:
+
+        final_amounts = {}
+        for reactant in self.reactants:
+            initial_amount = concentrations[reactant]
+            consumed_amount = extent * self.stoichiometry[0][reactant.formula]
+            final_amounts[reactant] = initial_amount - consumed_amount
+        for product in self.products:
+            formed_amount = extent * self.stoichiometry[1][product.formula]
+            final_amounts[product] = formed_amount
+        return final_amounts
+    
+    def __calc_Hf(self, final_amounts: dict[Compound, float]) -> float:
+
+        delta_Hf = 0.0
+        for product in self.products:
+            delta_Hf += final_amounts[product] * product.stdHf
+        for reactant in self.reactants:
+            delta_Hf -= final_amounts[reactant] * reactant.stdHf
+        return delta_Hf
+    
+    def __calc_SH_reactants(self, final_amounts: dict[Compound, float]) -> float:
 
         total_SH = 0.0
         for reactant in self.reactants:
-            coeff = self.stoichiometry[0][reactant.formula]
             temp = self.temperatures[reactant]
-            total_SH += coeff * reactant.SH(temp)
-        self.__total_SH_reactants = total_SH
+            total_SH += final_amounts[reactant] * reactant.SH(temp)
+        return total_SH
+    
+    def __calc_SH_products(self, final_amounts: dict[Compound, float], temperature: float) -> float:
 
-    def __calc_Hf(self):
-
-        """
-        Calculates the total formation enthalpy change (kJ) for the reaction based on the heats of formation of reactants and products at their respective temperatures.
-        """
-
-        delta_Hf = 0.0
-        for reactant in self.reactants:
-            coeff = self.stoichiometry[0][reactant.formula]
-            delta_Hf -= coeff * reactant.stdHf
+        total_SH = 0.0
         for product in self.products:
-            coeff = self.stoichiometry[1][product.formula]
-            delta_Hf += coeff * product.stdHf
-        self.delta_Hf = delta_Hf
+            total_SH += final_amounts[product] * product.SH(temperature)
+        return total_SH
+    
+    def __energy_balance(self, temperature: float, final_amounts: dict[Compound, float]) -> float:
 
-    def __create_SH_products_function(self):
+        residual = self.__calc_SH_products(final_amounts, temperature) - self.__calc_SH_reactants(final_amounts) + self.__calc_Hf(final_amounts)
+        return residual
+    
+    def __get_temperature_bounds(self,) -> tuple[float, float]:
 
-        common_temps = set()
-        for product in self.products:
-            temps = [round(t, 6) for t in product.get_temperatures()]
-            common_temps.update(temps)
-        common_temps = sorted(common_temps)
-        SH_functions = []
-        stoich_products = self.stoichiometry[1]
-        for product in self.products:
-            stoich_coeff = stoich_products[product.formula]
-            SH_vals = stoich_coeff * np.array([product.SH(t) for t in common_temps])
-            function = make_interp_spline(common_temps, SH_vals, k=1)
-            SH_functions.append(function)
-        spline_coeffs = sum(f.c for f in SH_functions)
-        self.SH_products_function = BSpline(SH_functions[0].t, spline_coeffs, k=1)
+        min_temp = 0.0
+        max_temp = np.inf
+        for component in self.reactants.union(self.products):
+            min_temp = max(min_temp, np.min(component.get_temperatures()))
+            max_temp = min(max_temp, np.max(component.get_temperatures()))
+        return min_temp, max_temp
+    
+    def calc_flame_temp(self, concentrations: dict[Compound, float]) -> float:
+
+        self.__validate_concentrations(concentrations)
+        extent = self.__find_extent_of_reaction(concentrations)
+        final_amounts = self.__compute_final_species_amounts(concentrations, extent)
+        T_min, T_max = self.__get_temperature_bounds()
+        result = brentq(self.__energy_balance, T_min, T_max, args=(final_amounts,))
+        flame_temp = result[0] if isinstance(result, tuple) else result
+        return flame_temp
 
 def products_from_reactants(reactants: set[Compound], dissociation: bool) -> set[Compound]: # Placeholder function for potential reaction product generation
 
@@ -247,3 +322,7 @@ CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
 Methane = Compound("Methane", "CH4", "Methane")
 Oxygen = Compound("Oxygen", "O2", "Oxygen")
 Water = Compound("Water", "H2O", "Water")
+
+test_reaction = Reaction({Methane, Oxygen}, {Methane: 300.0, Oxygen: 300.0}, dissociation=False)
+flame_temp = test_reaction.calc_flame_temp({Methane: 0.2, Oxygen: 0.8})
+print(flame_temp)
