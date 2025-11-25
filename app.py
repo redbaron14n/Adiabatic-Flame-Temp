@@ -1,157 +1,57 @@
-# ###################
-# Ian Janes
-# Professor Don Lipkin
-# MSEN 210 200
-# Adiabatic Flame Temperature
-# Main App File
-# ###################
+from dash import Dash, dcc, html
 
-MAX_REACTANTS = 4
+def mode_dropdown() -> html.Div:
 
-import dash
-from dash import ALL, dcc, html, Input, Output
-from flame_temp_calculator import Compound_list
-
-app = dash.Dash(__name__)
-
-app.layout = html.Div([
-
-    # Mode selection
-    html.Div([
-        html.Label("Graph Mode"),
-        dcc.Dropdown(
-            id = "mode-dropdown",
-            options = [
-                {"label": "Compound Data", "value": "compound"},
-                {"label": "Reaction Flame Temperature", "value": "reaction"}
-            ],
-            value = "reaction"
-        )
-    ]),
-
-    html.Hr(),
-
-    html.Div(id = "mode-container"),
-
-    html.Hr(),
-
-    dcc.Graph(id = "main-graph")
-])
-
-@app.callback(
-    Output("mode-container", "children"),
-    Input("mode-dropdown", "value")
-)
-
-def display_mode(mode):
-
-    if mode == "compound":
-        return compound_controls()
-    elif mode == "reaction":
-        return reaction_controls()
-    
-def compound_controls():
-
-    return html.Div([
-        html.Label("Compound"),
-        dcc.Dropdown(
-            id="compound-dropdown",
-            options = [{"label": c.name, "value": c.name} for c in Compound_list],
-            value = Compound_list[0].name
-        ),
-
-        html.Label("Variable"),
-        dcc.Dropdown(
-            id = "variable-dropdown",
-            options = [
-                {"label": "Constant Pressure Specific Heat (Cp)", "value": "cp"},
-                {"label": "Standard Entropy (S°)", "value": "s"},
-                {"label": "Total Entropy Change (ΔS)", "value": "ds"},
-                {"label": "Sensible Heat (SH)", "value": "sh"},
-                {"label": "Heat of Formation (ΔHf)", "value": "hf"},
-                {"label": "Gibbs Free Energy (ΔGf)", "value": "gf"},
-                {"label": "log Kf", "value": "logKf"}
-            ],
-            value = "sh"
-        )
-    ])
-
-def reaction_controls():
-
-    return html.Div([
-        html.Label("Number of Reactants"),
-        dcc.Dropdown(
-            id = "num-reactants",
-            options = [{"label": str(i), "value": i} for i in range(1, MAX_REACTANTS+1)],
-            value = 2
-        ),
-
-        html.Div(id = "reactant-selectors"),
-
-        html.Label("Reactant with Variable Concentration"),
-        dcc.Dropdown(
-            id = "variable-reactant"
-        ),
-
-        html.Div(id="fixed-reactant-inputs"),
-
-        dcc.Checklist(
-            id = "dissociation-check",
-            options = [{"label": "Enable dissociation", "value": "diss"}],
-            value = []
-        )
-    ])
-
-@app.callback(
-    Output("reactant-selectors", "children"),
-    Input("num-reactants", "value")
-)
-
-def build_reactant_selectors(n: int):
-
-    return [
-        html.Div([
-            html.Label(f"Reactant {i+1}"),
+    return html.Div(
+        children = [
+            html.Label("Graph Mode"),
             dcc.Dropdown(
-                id = {"type": "reactant-name", "index": i},
-                options = [{"label": c.name, "value": c.name} for c in Compound_list],
+                id = "mode-dropdown",
+                options = [
+                    {"label": "Compound Data", "value": "compound"},
+                    {"label": "Reaction Flame Temperature", "value": "reaction"}
+                ],
+                value = "reaction"
             )
-        ])
-        for i in range(n)
-    ]
+        ]
+    )
 
-@app.callback(
-    Output("variable-reactant", "options"),
-    Input({"type": "reactant-name", "index": ALL}, "value")
-)
+def control_panel(app) -> html.Div:
 
-def update_variable_reactant_options(reactants):
+    return html.Div(
+        className = "control-panel",
+        children = [
+            html.H1(app.title),
+            html.Hr(),
+            mode_dropdown()
+        ],
+        style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
+    )
 
-    options = [r for r in reactants if r is not None]
-    return [{"label": r, "value": r} for r in options]
+def graph_panel() -> html.Div:
 
-@app.callback(
-    Output("fixed-reactant-inputs", "children"),
-    Input({"type": "reactant-name", "index": ALL}, "value"),
-    Input("variable-reactant", "value")
-)
+    return html.Div(
+        className = "graph-panel",
+        children = [dcc.Graph(id = "main-graph", style = {"height": "90vh"})],
+        style = {"width": "70%", "display": "inline-block", "padding": "20px"}
+    )
 
-def build_concentration_inputs(reactants, variable):
+def create_layout(app: Dash) -> html.Div:
 
-    sliders = []
-    for i, r in enumerate(reactants):
-        if r is None or r == variable:
-            continue
-        sliders.append(
-            html.Div([
-                html.Label(f"Concentration of {r}"),
-                dcc.Slider(
-                    id = {"type": "reactant-conc", "index": i},
-                    min = 0.0, max = 1.0, step = 0.01, value = 0.5
-                )
-            ])
-        )
-    return sliders
+    return html.Div(
+        className = "app-div",
+        children = [
+            control_panel(app),
+            graph_panel()
+        ]
+    )
+
+def main() -> None:
+
+    app = Dash()
+    app.title = "Adiabatic Flame Temperature"
+    app.layout = create_layout(app)
+    app.run()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    main()
