@@ -1,4 +1,5 @@
 from dash import Dash, dcc, html
+from flame_temp_calculator import Compound_list
 
 def mode_dropdown() -> html.Div:
 
@@ -16,6 +17,34 @@ def mode_dropdown() -> html.Div:
         ]
     )
 
+def compound_controls() -> html.Div:
+
+    return html.Div(
+        id = "compound-controls",
+        children = [
+            html.Label("Select Compound"),
+            dcc.Dropdown(
+                id = "compound-selection",
+                options = [{"label": c.name, "value": c} for c in Compound_list],
+                value = Compound_list[0]
+            ),
+            html.Label("Select Variable"),
+            dcc.Dropdown(
+                id = "compound-variable",
+                options = [
+                    {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
+                    {"label": "Standard Entropy (S°)", "value": "s"},
+                    {"label": "Total Entropy Change (ΔS)", "value": "ds"},
+                    {"label": "Sensible Heat (SH)", "value": "sh"},
+                    {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "hf"},
+                    {"label": "Standard Gibbs Free Energy of Formation (ΔGf°)", "value": "gf"},
+                    {"label": "log Kf", "value": "logKf"}
+                ],
+                placeholder = "Select a variable..."
+            )
+        ]
+    )
+
 def control_panel(app) -> html.Div:
 
     return html.Div(
@@ -23,7 +52,8 @@ def control_panel(app) -> html.Div:
         children = [
             html.H1(app.title),
             html.Hr(),
-            mode_dropdown()
+            mode_dropdown(),
+            html.Div(id = "mode-controls")
         ],
         style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
     )
