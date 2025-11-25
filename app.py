@@ -102,5 +102,23 @@ def reaction_controls():
         )
     ])
 
+@app.callback(
+    Output("reactant-selectors", "children"),
+    Input("num-reactants", "value")
+)
+
+def build_reactant_selectors(n: int):
+
+    return [
+        html.Div([
+            html.Label(f"Reactant {i+1}"),
+            dcc.Dropdown(
+                id = {"type": "reactant-name", "index": i},
+                options = [{"label": c.name, "value": c.name} for c in Compound_list],
+            )
+        ])
+        for i in range(n)
+    ]
+
 if __name__ == "__main__":
     app.run(debug=True)
