@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html
+from dash import Dash, dcc, html, Input, Output
 from flame_temp_calculator import Compound_list
 
 def mode_dropdown() -> html.Div:
@@ -25,8 +25,8 @@ def compound_controls() -> html.Div:
             html.Label("Select Compound"),
             dcc.Dropdown(
                 id = "compound-selection",
-                options = [{"label": c.name, "value": c} for c in Compound_list],
-                value = Compound_list[0]
+                options = [{"label": c.name, "value": c.name} for c in Compound_list],
+                value = Compound_list[0].name
             ),
             html.Label("Select Variable"),
             dcc.Dropdown(
@@ -45,7 +45,25 @@ def compound_controls() -> html.Div:
         ]
     )
 
+def reaction_controls() -> html.Div:
+
+    pass
+
 def control_panel(app) -> html.Div:
+
+    @app.callback(
+        Output("mode-controls", "children"),
+        Input("mode-dropdown", "value")
+    )
+
+    def update_mode_controls(mode: str) -> html.Div:
+
+        if mode == "compound":
+            return compound_controls()
+        elif mode == "reaction":
+            return reaction_controls()
+        else:
+            return html.Div("Invalid mode")
 
     return html.Div(
         className = "control-panel",
