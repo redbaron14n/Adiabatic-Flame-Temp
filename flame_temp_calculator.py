@@ -39,57 +39,57 @@ class Compound:
 
     def __init__(self, name: str, formula: str, id: str, ref_temp: float = 298.15):
 
-        self.__set_name(name)
-        self.__set_formula(formula)
-        self.__set_id(id)
-        self.__set_data()
-        self.__set_ref_temp(ref_temp)
+        self._set_name(name)
+        self._set_formula(formula)
+        self._set_id(id)
+        self._set_data()
+        self._set_ref_temp(ref_temp)
 
-    def __set_name(self, name: str):
+    def _set_name(self, name: str):
 
         self.name = name
 
-    def __set_formula(self, formula: str):
+    def _set_formula(self, formula: str):
 
         self.formula = formula
 
-    def __set_id(self, id: str):
+    def _set_id(self, id: str):
 
-        self.__id = id
+        self._id = id
 
-    def __set_data(self):
+    def _set_data(self):
 
-        self.data_table = TD[TD["Compound"] == self.__id]
-        self.__set_temperatures(self.data_table["T"])
-        self.__set_SH(self.data_table["SH"])
-        self.__set_Hf(self.data_table["Hf"])
-        self.__set_logKf(self.data_table["logKf"])
+        self.data_table = TD[TD["Compound"] == self._id]
+        self._set_temperatures(self.data_table["T"])
+        self._set_SH(self.data_table["SH"])
+        self._set_Hf(self.data_table["Hf"])
+        self._set_logKf(self.data_table["logKf"])
 
-    def __set_temperatures(self, list: pd.Series):
+    def _set_temperatures(self, list: pd.Series):
 
         temp_array = list.to_numpy(dtype=np.float64)
-        self.__temperatures = temp_array
+        self._temperatures = temp_array
 
-    def __set_SH(self, list: pd.Series):
+    def _set_SH(self, list: pd.Series):
 
         SH_array = list.to_numpy()
-        self.__SH_list = SH_array
-        self.__SH_function = make_interp_spline(self.get_temperatures(), SH_array, k=1)
+        self._SH_list = SH_array
+        self._SH_function = make_interp_spline(self.get_temperatures(), SH_array, k=1)
 
-    def __set_Hf(self, list: pd.Series):
+    def _set_Hf(self, list: pd.Series):
 
         Hf_array = list.to_numpy()
-        self.__Hf_list = Hf_array
-        self.__Hf_function = make_interp_spline(self.get_temperatures(), Hf_array, k=1)
+        self._Hf_list = Hf_array
+        self._Hf_function = make_interp_spline(self.get_temperatures(), Hf_array, k=1)
 
-    def __set_logKf(self, list: pd.Series):
+    def _set_logKf(self, list: pd.Series):
         
         logKf_array = list.to_numpy()
         logKf_array, logKf_finite_array = get_numerical(logKf_array)
-        self.__logKf_list = logKf_array
-        self.__logKf_function = make_interp_spline(self.get_temperatures(), logKf_finite_array, k=1)
+        self._logKf_list = logKf_array
+        self._logKf_function = make_interp_spline(self.get_temperatures(), logKf_finite_array, k=1)
 
-    def __set_ref_temp(self, ref_temp: float):
+    def _set_ref_temp(self, ref_temp: float):
 
         self.ref_temp = ref_temp
         self.stdHf = self.Hf(ref_temp)
@@ -98,22 +98,22 @@ class Compound:
 
     def get_temperatures(self) -> NDArray[np.float64]:
 
-        temp_array = self.__temperatures
+        temp_array = self._temperatures
         return temp_array
     
     def get_SH_list(self) -> NDArray[np.float64]:
 
-        SH_array = self.__SH_list
+        SH_array = self._SH_list
         return SH_array
     
     def get_Hf_list(self) -> NDArray[np.float64]:
 
-        Hf_array = self.__Hf_list
+        Hf_array = self._Hf_list
         return Hf_array
     
     def get_logKf_list(self) -> NDArray[np.float64]:
 
-        logKf_list = self.__logKf_list
+        logKf_list = self._logKf_list
         return logKf_list
     
     ##### Functional Methods #####
@@ -124,7 +124,7 @@ class Compound:
         Returns the sensible heat (kJ/mol) of the compound at a given temperature (K).
         """
 
-        value = float(self.__SH_function(temperature))
+        value = float(self._SH_function(temperature))
         return value
     
     def Hf(self, temperature: float) -> float:
@@ -133,7 +133,7 @@ class Compound:
         Returns the heat of formation (kJ/mol) of the compound at a given temperature (K).
         """
 
-        value = float(self.__Hf_function(temperature))
+        value = float(self._Hf_function(temperature))
         return value
     
     def logKf(self, temperature: float) -> float:
@@ -142,7 +142,7 @@ class Compound:
         Returns the logKf of the compound at a given temperature (K).
         """
 
-        value = self.__logKf_function(temperature)
+        value = self._logKf_function(temperature)
         return value
     
 class Reaction:
@@ -162,34 +162,34 @@ class Reaction:
         @attrib delta_Hf : float - Total formation enthalpy change (kJ) for the reaction.
         """
 
-        self.__set_reactants(reactants)
-        self.__set_products(dissociation)
-        self.__set_stoichiometry()
-        self.__set_temperatures(temperatures)
-        self.__set_temperature_bounds()
+        self._set_reactants(reactants)
+        self._set_products(dissociation)
+        self._set_stoichiometry()
+        self._set_temperatures(temperatures)
+        self._set_temperature_bounds()
 
-    def __set_reactants(self, reactants: set[Compound]):
+    def _set_reactants(self, reactants: set[Compound]):
 
         self.reactants = reactants
 
-    def __set_products(self, dissociation: bool):
+    def _set_products(self, dissociation: bool):
 
         self.products = products_from_reactants(self.reactants, dissociation)
 
-    def __set_stoichiometry(self):
+    def _set_stoichiometry(self):
 
         reactant_strs = {r.formula for r in self.reactants}
         product_strs = {p.formula for p in self.products}
         balanced_reactants, balanced_products = balance_stoichiometry(reactant_strs, product_strs)
         self.stoichiometry = (balanced_reactants, balanced_products)
 
-    def __set_temperatures(self, temperatures: dict[Compound, float]):
+    def _set_temperatures(self, temperatures: dict[Compound, float]):
 
         if len(temperatures) != len(self.reactants):
             raise ValueError("Number of temperatures provided does not match number of reactants.")
         self.temperatures = temperatures
 
-    def __validate_reactants(self, compounds: set[Compound]):
+    def _validate_reactants(self, compounds: set[Compound]):
 
         reactant_set = set(self.reactants)
         if compounds != reactant_set:
@@ -197,9 +197,9 @@ class Reaction:
             extra = compounds - reactant_set
             raise ValueError(f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}")
 
-    def __validate_concentrations(self, concentrations: dict[Compound, float]):
+    def _validate_concentrations(self, concentrations: dict[Compound, float]):
 
-        self.__validate_reactants(set(concentrations.keys()))
+        self._validate_reactants(set(concentrations.keys()))
         if not np.isclose(sum(concentrations.values()), 1.0):
             raise ValueError("Concentrations must sum to 1.")
         elif any(c <= 0 for c in concentrations.values()):
@@ -207,13 +207,13 @@ class Reaction:
         elif (len(concentrations) != 1) and any(c >= 1 for c in concentrations.values()):
             raise ValueError("Individual concentrations must be less than 1.")
     
-    def __find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
+    def _find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
 
         weighted_conc = {c: concentrations[c] / self.stoichiometry[0][c.formula] for c in self.reactants}
         extent = min(weighted_conc.values())
         return extent
     
-    def __compute_final_species_amounts(self, concentrations: dict[Compound, float], extent: float) -> dict[Compound, float]:
+    def _compute_final_species_amounts(self, concentrations: dict[Compound, float], extent: float) -> dict[Compound, float]:
 
         final_amounts = {}
         for reactant in self.reactants:
@@ -225,7 +225,7 @@ class Reaction:
             final_amounts[product] = formed_amount
         return final_amounts
     
-    def __calc_Hf(self, final_amounts: dict[Compound, float]) -> float:
+    def _calc_Hf(self, final_amounts: dict[Compound, float]) -> float:
 
         delta_Hf = 0.0
         for product in self.products:
@@ -234,7 +234,7 @@ class Reaction:
             delta_Hf -= final_amounts[reactant] * reactant.stdHf
         return delta_Hf
     
-    def __calc_SH_reactants(self, final_amounts: dict[Compound, float]) -> float:
+    def _calc_SH_reactants(self, final_amounts: dict[Compound, float]) -> float:
 
         total_SH = 0.0
         for reactant in self.reactants:
@@ -242,43 +242,43 @@ class Reaction:
             total_SH += final_amounts[reactant] * reactant.SH(temp)
         return total_SH
     
-    def __calc_SH_products(self, final_amounts: dict[Compound, float], temperature: float) -> float:
+    def _calc_SH_products(self, final_amounts: dict[Compound, float], temperature: float) -> float:
 
         total_SH = 0.0
         for product in self.products:
             total_SH += final_amounts[product] * product.SH(temperature)
         return total_SH
     
-    def __energy_balance(self, temperature: float, final_amounts: dict[Compound, float]) -> float:
+    def _energy_balance(self, temperature: float, final_amounts: dict[Compound, float]) -> float:
 
-        residual = float(self.__calc_SH_products(final_amounts, temperature) - self.__calc_SH_reactants(final_amounts) + self.__calc_Hf(final_amounts))
+        residual = float(self._calc_SH_products(final_amounts, temperature) - self._calc_SH_reactants(final_amounts) + self._calc_Hf(final_amounts))
         return residual
     
-    def __set_temperature_bounds(self):
+    def _set_temperature_bounds(self):
 
         min_temp = 0.0
         max_temp = np.inf
         for component in self.reactants.union(self.products):
             min_temp = max(min_temp, np.min(component.get_temperatures()))
             max_temp = min(max_temp, np.max(component.get_temperatures()))
-        self.__min_temp = min_temp
-        self.__max_temp = max_temp
+        self._min_temp = min_temp
+        self._max_temp = max_temp
     
     def calc_flame_temp(self, concentrations: dict[Compound, float]) -> float:
 
-        self.__validate_concentrations(concentrations)
-        extent = self.__find_extent_of_reaction(concentrations)
-        final_amounts = self.__compute_final_species_amounts(concentrations, extent)
-        if self.__energy_balance(self.__min_temp, final_amounts) * self.__energy_balance(self.__max_temp, final_amounts) > 0: # No root in bounds (flame temp higher than max)
+        self._validate_concentrations(concentrations)
+        extent = self._find_extent_of_reaction(concentrations)
+        final_amounts = self._compute_final_species_amounts(concentrations, extent)
+        if self._energy_balance(self._min_temp, final_amounts) * self._energy_balance(self._max_temp, final_amounts) > 0: # No root in bounds (flame temp higher than max)
             flame_temp = np.nan
         else:
-            result = brentq(self.__energy_balance, self.__min_temp, self.__max_temp, args=(final_amounts,))
+            result = brentq(self._energy_balance, self._min_temp, self._max_temp, args=(final_amounts,))
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
     
-    def __generate_concentrations(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> list[dict[Compound, float]]:
+    def _generate_concentrations(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> list[dict[Compound, float]]:
         
-        self.__validate_concentrations(base_concentrations)
+        self._validate_concentrations(base_concentrations)
         delta_x = 1.0 / (resolution + 1) # Avoid 0 and 1 concentrations while maintaining resolution
         dependent_compounds = self.reactants - {variable_compound}
         total_dependent_conc = sum(base_concentrations[c] for c in dependent_compounds)
@@ -296,7 +296,7 @@ class Reaction:
     
     def calc_flame_table(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> NDArray[np.float64]:
 
-        concentration_dicts = self.__generate_concentrations(variable_compound, base_concentrations, resolution)
+        concentration_dicts = self._generate_concentrations(variable_compound, base_concentrations, resolution)
         x_values = []
         flame_temps = []
         for conc_dict in concentration_dicts:
