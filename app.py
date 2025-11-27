@@ -127,7 +127,12 @@ def control_panel(app: Dash) -> html.Div:
             html.H1(app.title),
             html.Hr(),
             mode_dropdown(),
-            html.Div(id = "mode-controls")
+            html.Div(id = "mode-controls"),
+            html.Hr(),
+            html.Button(
+                id = "update-graph-button",
+                children = ["Update Graph"]
+            )
         ],
         style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
     )
