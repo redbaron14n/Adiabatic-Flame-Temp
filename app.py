@@ -1,5 +1,6 @@
 from dash import Dash, dcc, html, Input, MATCH, Output
 from config import Compound_list
+import plotly.graph_objs as go
 
 def mode_dropdown() -> html.Div:
 
@@ -145,7 +146,44 @@ def graph_panel() -> html.Div:
         style = {"width": "70%", "display": "inline-block", "padding": "20px"}
     )
 
+def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
+
+    compound = next(c for c in Compound_list if c.name == compound_name)
+    if variable_name == "hf":
+        data = compound.hf_table()
+        y_label = "Heat of Formation (kJ/mol)"
+    elif variable_name == "sh":
+        data = compound.sh_table()
+        y_label = "Sensible Heat (kJ/mol)"
+    else:
+        data = compound.logKf_table()
+        y_label = "log Kf"
+    t, y = data
+    figure = go.Figure()
+    figure.add_trace(go.Scatter(x = t, y = y, mode = "lines+markers", name = compound_name))
+    figure.update_layout(
+        title = f"{compound_name} - {y_label}",
+        xaxis_title = "Temperature (K)",
+        yaxis_title = y_label,
+        template = "plotly_white",
+        showlegend = False
+    )
+    return figure
+
 def create_layout(app: Dash) -> html.Div:
+
+    @app.callback(
+        Output("main-graph", "figure"),
+        Input("graph-mode", "value")
+    )
+    def update_graph(graph_mode: str) -> go.Figure:
+
+        if graph_mode == "compound":
+            selected_compound, variable = get_compound_selections() # Placeholder
+            graph = update_compound_graph(selected_compound, variable)
+        elif graph_mode == "reaction":
+            graph = update_reaction_graph() # Placeholder
+        return graph
 
     return html.Div(
         className = "app-div",
