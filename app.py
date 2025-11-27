@@ -1,5 +1,5 @@
-from dash import Dash, dcc, html, Input, Output
-from flame_temp_calculator import Compound_list
+from dash import Dash, dcc, html, Input, MATCH, Output
+from config import Compound_list
 
 def mode_dropdown() -> html.Div:
 
@@ -47,15 +47,41 @@ def compound_controls() -> html.Div:
 
 def reaction_controls() -> html.Div:
 
-    pass
+    return html.Div(
+        id = "reaction-controls",
+        children = [
+            html.Label("Select Reactants"),
+            dcc.Dropdown(
+                id = {"type": "reactant-selection", "index": 0},
+                options = [{"label": c.name, "value": c.name} for c in Compound_list],
+                placeholder = "Select reactants...",
+                multi = True
+            ),
+            html.Label("Select Controlled Reactant"),
+            dcc.Dropdown(
+                id = {"type": "controlled-dropdown", "index": 0},
+                options = [],
+                value = None
+            )
+        ]
+    )
 
-def control_panel(app) -> html.Div:
+def control_panel(app: Dash) -> html.Div:
+
+    @app.callback(
+        Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
+        Input({"type": "reactant-selection", "index": MATCH}, "value")
+    )
+    def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
+        options = []
+        if reactants:
+            options = [{"label": r, "value": r} for r in reactants]
+        return options
 
     @app.callback(
         Output("mode-controls", "children"),
         Input("mode-dropdown", "value")
     )
-
     def update_mode_controls(mode: str) -> html.Div:
 
         if mode == "compound":
@@ -99,7 +125,7 @@ def main() -> None:
     app = Dash()
     app.title = "Adiabatic Flame Temperature"
     app.layout = create_layout(app)
-    app.run()
+    app.run(debug=True)
 
 if __name__ == "__main__":
     main()
