@@ -64,7 +64,11 @@ def reaction_controls(app: Dash) -> html.Div:
                 value = None
             ),
             html.Label("Ratios of Other Reactants"),
-            html.Div(id = {"type": "reactant-ratios", "index": 0})
+            html.Div(id = {"type": "reactant-ratios", "index": 0}),
+            dcc.Checklist(
+                options = [{"label": "Calculate Dissociation", "value": "dissociation"}],
+                value = []
+            )
         ]
     )
 
