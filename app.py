@@ -45,7 +45,7 @@ def compound_controls() -> html.Div:
         ]
     )
 
-def reaction_controls() -> html.Div:
+def reaction_controls(app: Dash) -> html.Div:
 
     return html.Div(
         id = "reaction-controls",
@@ -62,11 +62,37 @@ def reaction_controls() -> html.Div:
                 id = {"type": "controlled-dropdown", "index": 0},
                 options = [],
                 value = None
-            )
+            ),
+            html.Label("Ratios of Other Reactants"),
+            html.Div(id = {"type": "reactant-ratios", "index": 0})
         ]
     )
 
 def control_panel(app: Dash) -> html.Div:
+
+    @app.callback(
+        Output({"type": "reactant-ratios", "index": MATCH}, "children"),
+        Input({"type": "reactant-selection", "index": MATCH}, "value"),
+        Input({"type": "controlled-dropdown", "index": MATCH}, "value")
+    )
+    def update_ratio_boxes(reactants: list[str], controlled: str) -> list[html.Div]:
+
+        boxes = []
+        if not reactants:
+            return boxes
+        for r in reactants:
+            if r == controlled:
+                continue
+            boxes.append(html.Div([
+                        html.Label(f"{r} Ratio: "),
+                        dcc.Input(
+                            id = {"type": "reactant-input", "compound": r},
+                            type = "number",
+                            min = 1,
+                            value = 1
+                            )],
+                    style = {"margin-bottom": "8px"}))
+        return boxes
 
     @app.callback(
         Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
@@ -87,7 +113,7 @@ def control_panel(app: Dash) -> html.Div:
         if mode == "compound":
             return compound_controls()
         elif mode == "reaction":
-            return reaction_controls()
+            return reaction_controls(app)
         else:
             return html.Div("Invalid mode")
 
