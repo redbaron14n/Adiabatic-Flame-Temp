@@ -7,7 +7,7 @@
 # ###################
 
 from chempy import balance_stoichiometry
-from compound import Compound
+from class_files.compound import Compound
 from config import products_from_reactants
 import numpy as np
 from numpy.typing import NDArray
@@ -66,6 +66,14 @@ class Reaction:
             missing = reactant_set - compounds
             extra = compounds - reactant_set
             raise ValueError(f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}")
+        
+    def _ratio_to_prop(self, ratios: dict[Compound, float | int]) -> dict[Compound, float]:
+
+        total = sum(ratios.values())
+        proportions = {}
+        for c in ratios.keys():
+            proportions[c] = ratios[c]/total
+        return proportions
 
     def _validate_concentrations(self, concentrations: dict[Compound, float]):
 
@@ -146,8 +154,10 @@ class Reaction:
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
     
-    def _generate_concentrations(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> list[dict[Compound, float]]:
+    def _generate_concentrations(self, variable_compound: Compound, base_concentrations: dict[Compound, float | int], resolution: int = 100) -> list[dict[Compound, float]]:
         
+        if all(isinstance(coeff, int) for coeff in base_concentrations.values()):
+            base_concentrations = self._ratio_to_prop(base_concentrations)
         self._validate_concentrations(base_concentrations)
         delta_x = 1.0 / (resolution + 1) # Avoid 0 and 1 concentrations while maintaining resolution
         dependent_compounds = self.reactants - {variable_compound}
@@ -164,7 +174,7 @@ class Reaction:
             x_val += delta_x
         return concentration_list
     
-    def calc_flame_table(self, variable_compound: Compound, base_concentrations: dict[Compound, float], resolution: int = 100) -> NDArray[np.float64]:
+    def calc_flame_table(self, variable_compound: Compound, base_concentrations: dict[Compound, float | int], resolution: int = 100) -> NDArray[np.float64]:
 
         concentration_dicts = self._generate_concentrations(variable_compound, base_concentrations, resolution)
         x_values = []
