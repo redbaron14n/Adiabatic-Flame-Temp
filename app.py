@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, Input, MATCH, Output
+from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
 from config import Compound_list
 import plotly.graph_objs as go
 
@@ -9,9 +9,6 @@ def main() -> None:
     app.title = "Adiabatic Flame Temperature"
     app.layout = create_layout()
     app.run(debug=True)
-
-if __name__ == "__main__":
-    main()
 
 def create_layout() -> html.Div:
 
@@ -167,6 +164,32 @@ def graph_panel() -> html.Div:
         style = {"width": "70%", "display": "inline-block", "padding": "20px"}
     )
 
+@app.callback(
+    Output("main-graph", "figure"),
+    Input("mode-dropdown", "value"),
+
+    # Compound mode states
+    State("compound-selection", "value"),
+    State("compound-variable", "value"),
+
+    # Reaction mode states
+    State({"type": "reactant-selection", "index": 0}, "value"),
+    State({"type": "controlled-dropdown", "index": 0}, "value"),
+    State({"type": "reactant-input", "compound": ALL}, "value"),
+)
+def update_graph(
+    mode: str,
+    compound_name: str, variable_name: str,
+    reactants: list[str], controlled: str, ratio_values: list[int]
+) -> go.Figure:
+    if mode == "compound":
+        figure = update_compound_graph(compound_name, variable_name)
+    elif mode == "reaction":
+        figure = update_reaction_graph(reactants, controlled, ratio_values)
+    else:
+        figure = go.Figure()
+    return figure
+
 def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
 
     compound = next(c for c in Compound_list if c.name == compound_name)
@@ -191,15 +214,9 @@ def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
     )
     return figure
 
-@app.callback(
-    Output("main-graph", "figure"),
-    Input("mode-dropdown", "value")
-)
-def update_graph(graph_mode: str) -> go.Figure:
+def update_reaction_graph(reactants: list[str], controlled_var: str, ratios: list[int]) -> go.Figure:
 
-    if graph_mode == "compound":
-        selected_compound, variable = get_compound_selections() # Placeholder
-        graph = update_compound_graph(selected_compound, variable)
-    elif graph_mode == "reaction":
-        pass # Placeholder
-    return graph
+    pass
+
+if __name__ == "__main__":
+    main()
