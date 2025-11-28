@@ -2,6 +2,51 @@ from dash import Dash, dcc, html, Input, MATCH, Output
 from config import Compound_list
 import plotly.graph_objs as go
 
+app = Dash()
+
+def main() -> None:
+
+    app.title = "Adiabatic Flame Temperature"
+    app.layout = create_layout()
+    app.run(debug=True)
+
+if __name__ == "__main__":
+    main()
+
+
+
+def create_layout() -> html.Div:
+
+    return html.Div(
+        className = "app-div",
+        children = [
+            control_panel(),
+            graph_panel()
+        ]
+    )
+
+
+
+def control_panel() -> html.Div:
+
+    return html.Div(
+        className = "control-panel",
+        children = [
+            html.H1(app.title),
+            html.Hr(),
+            mode_dropdown(),
+            html.Div(id = "mode-controls"),
+            html.Hr(),
+            html.Button(
+                id = "update-graph-button",
+                children = ["Update Graph"]
+            )
+        ],
+        style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
+    )
+
+
+
 def mode_dropdown() -> html.Div:
 
     return html.Div(
@@ -17,6 +62,8 @@ def mode_dropdown() -> html.Div:
             )
         ]
     )
+
+
 
 def compound_controls() -> html.Div:
 
@@ -46,7 +93,9 @@ def compound_controls() -> html.Div:
         ]
     )
 
-def reaction_controls(app: Dash) -> html.Div:
+
+
+def reaction_controls() -> html.Div:
 
     return html.Div(
         id = "reaction-controls",
@@ -73,70 +122,60 @@ def reaction_controls(app: Dash) -> html.Div:
         ]
     )
 
-def control_panel(app: Dash) -> html.Div:
 
-    @app.callback(
-        Output({"type": "reactant-ratios", "index": MATCH}, "children"),
-        Input({"type": "reactant-selection", "index": MATCH}, "value"),
-        Input({"type": "controlled-dropdown", "index": MATCH}, "value")
-    )
-    def update_ratio_boxes(reactants: list[str], controlled: str) -> list[html.Div]:
 
-        boxes = []
-        if not reactants:
-            return boxes
-        for r in reactants:
-            if r == controlled:
-                continue
-            boxes.append(html.Div([
-                        html.Label(f"{r} Ratio: "),
-                        dcc.Input(
-                            id = {"type": "reactant-input", "compound": r},
-                            type = "number",
-                            min = 1,
-                            value = 1
-                            )],
-                    style = {"margin-bottom": "8px"}))
+@app.callback(
+    Output({"type": "reactant-ratios", "index": MATCH}, "children"),
+    Input({"type": "reactant-selection", "index": MATCH}, "value"),
+    Input({"type": "controlled-dropdown", "index": MATCH}, "value")
+)
+def update_ratio_boxes(reactants: list[str], controlled: str) -> list[html.Div]:
+
+    boxes = []
+    if not reactants:
         return boxes
+    for r in reactants:
+        if r == controlled:
+            continue
+        boxes.append(html.Div([
+                    html.Label(f"{r} Ratio: "),
+                    dcc.Input(
+                        id = {"type": "reactant-input", "compound": r},
+                        type = "number",
+                        min = 1,
+                        value = 1
+                        )],
+                style = {"margin-bottom": "8px"}))
+    return boxes
 
-    @app.callback(
-        Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
-        Input({"type": "reactant-selection", "index": MATCH}, "value")
-    )
-    def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
-        options = []
-        if reactants:
-            options = [{"label": r, "value": r} for r in reactants]
-        return options
 
-    @app.callback(
-        Output("mode-controls", "children"),
-        Input("mode-dropdown", "value")
-    )
-    def update_mode_controls(mode: str) -> html.Div:
 
-        if mode == "compound":
-            return compound_controls()
-        elif mode == "reaction":
-            return reaction_controls(app)
-        else:
-            return html.Div("Invalid mode")
+@app.callback(
+    Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
+    Input({"type": "reactant-selection", "index": MATCH}, "value")
+)
+def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
+    options = []
+    if reactants:
+        options = [{"label": r, "value": r} for r in reactants]
+    return options
 
-    return html.Div(
-        className = "control-panel",
-        children = [
-            html.H1(app.title),
-            html.Hr(),
-            mode_dropdown(),
-            html.Div(id = "mode-controls"),
-            html.Hr(),
-            html.Button(
-                id = "update-graph-button",
-                children = ["Update Graph"]
-            )
-        ],
-        style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
-    )
+
+
+@app.callback(
+    Output("mode-controls", "children"),
+    Input("mode-dropdown", "value")
+)
+def update_mode_controls(mode: str) -> html.Div:
+
+    if mode == "compound":
+        return compound_controls()
+    elif mode == "reaction":
+        return reaction_controls()
+    else:
+        return html.Div("Invalid mode")
+
+
 
 def graph_panel() -> html.Div:
 
@@ -145,6 +184,8 @@ def graph_panel() -> html.Div:
         children = [dcc.Graph(id = "main-graph", style = {"height": "90vh"})],
         style = {"width": "70%", "display": "inline-block", "padding": "20px"}
     )
+
+
 
 def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
 
@@ -170,35 +211,27 @@ def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
     )
     return figure
 
-def create_layout(app: Dash) -> html.Div:
 
-    @app.callback(
-        Output("main-graph", "figure"),
-        Input("graph-mode", "value")
-    )
-    def update_graph(graph_mode: str) -> go.Figure:
 
-        if graph_mode == "compound":
-            selected_compound, variable = get_compound_selections() # Placeholder
-            graph = update_compound_graph(selected_compound, variable)
-        elif graph_mode == "reaction":
-            graph = update_reaction_graph() # Placeholder
-        return graph
+@app.callback(
+    Input("compound-selection", "value"),
+    Input("compound-variable", "value")
+)
+def get_compound_selections(selected_compound: str, variable: str) -> tuple[str, str]:
 
-    return html.Div(
-        className = "app-div",
-        children = [
-            control_panel(app),
-            graph_panel()
-        ]
-    )
+    return selected_compound, variable
 
-def main() -> None:
 
-    app = Dash()
-    app.title = "Adiabatic Flame Temperature"
-    app.layout = create_layout(app)
-    app.run(debug=True)
 
-if __name__ == "__main__":
-    main()
+@app.callback(
+    Output("main-graph", "figure"),
+    Input("mode-dropdown", "value")
+)
+def update_graph(graph_mode: str) -> go.Figure:
+
+    if graph_mode == "compound":
+        selected_compound, variable = get_compound_selections() # Placeholder
+        graph = update_compound_graph(selected_compound, variable)
+    elif graph_mode == "reaction":
+        pass # Placeholder
+    return graph

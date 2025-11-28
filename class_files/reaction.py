@@ -11,8 +11,6 @@ from class_files.compound import Compound
 from config import products_from_reactants
 import numpy as np
 from numpy.typing import NDArray
-import pandas as pd
-from scipy.interpolate import make_interp_spline
 from scipy.optimize import brentq
     
 class Reaction:
