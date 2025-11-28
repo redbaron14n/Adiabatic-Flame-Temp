@@ -13,8 +13,6 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-
-
 def create_layout() -> html.Div:
 
     return html.Div(
@@ -24,8 +22,6 @@ def create_layout() -> html.Div:
             graph_panel()
         ]
     )
-
-
 
 def control_panel() -> html.Div:
 
@@ -45,8 +41,6 @@ def control_panel() -> html.Div:
         style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
     )
 
-
-
 def mode_dropdown() -> html.Div:
 
     return html.Div(
@@ -63,8 +57,19 @@ def mode_dropdown() -> html.Div:
         ]
     )
 
+@app.callback(
+    Output("mode-controls", "children"),
+    Input("mode-dropdown", "value")
+)
+def update_mode_controls(mode: str) -> html.Div:
 
-
+    if mode == "compound":
+        return compound_controls()
+    elif mode == "reaction":
+        return reaction_controls()
+    else:
+        return html.Div("Invalid mode")
+    
 def compound_controls() -> html.Div:
 
     return html.Div(
@@ -93,8 +98,6 @@ def compound_controls() -> html.Div:
         ]
     )
 
-
-
 def reaction_controls() -> html.Div:
 
     return html.Div(
@@ -122,7 +125,15 @@ def reaction_controls() -> html.Div:
         ]
     )
 
-
+@app.callback(
+    Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
+    Input({"type": "reactant-selection", "index": MATCH}, "value")
+)
+def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
+    options = []
+    if reactants:
+        options = [{"label": r, "value": r} for r in reactants]
+    return options
 
 @app.callback(
     Output({"type": "reactant-ratios", "index": MATCH}, "children"),
@@ -148,35 +159,6 @@ def update_ratio_boxes(reactants: list[str], controlled: str) -> list[html.Div]:
                 style = {"margin-bottom": "8px"}))
     return boxes
 
-
-
-@app.callback(
-    Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
-    Input({"type": "reactant-selection", "index": MATCH}, "value")
-)
-def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
-    options = []
-    if reactants:
-        options = [{"label": r, "value": r} for r in reactants]
-    return options
-
-
-
-@app.callback(
-    Output("mode-controls", "children"),
-    Input("mode-dropdown", "value")
-)
-def update_mode_controls(mode: str) -> html.Div:
-
-    if mode == "compound":
-        return compound_controls()
-    elif mode == "reaction":
-        return reaction_controls()
-    else:
-        return html.Div("Invalid mode")
-
-
-
 def graph_panel() -> html.Div:
 
     return html.Div(
@@ -184,8 +166,6 @@ def graph_panel() -> html.Div:
         children = [dcc.Graph(id = "main-graph", style = {"height": "90vh"})],
         style = {"width": "70%", "display": "inline-block", "padding": "20px"}
     )
-
-
 
 def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
 
@@ -210,18 +190,6 @@ def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
         showlegend = False
     )
     return figure
-
-
-
-@app.callback(
-    Input("compound-selection", "value"),
-    Input("compound-variable", "value")
-)
-def get_compound_selections(selected_compound: str, variable: str) -> tuple[str, str]:
-
-    return selected_compound, variable
-
-
 
 @app.callback(
     Output("main-graph", "figure"),
