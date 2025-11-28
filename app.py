@@ -1,6 +1,10 @@
 from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
+from class_files.compound import Compound
+from class_files.reaction import Reaction
 from config import Compound_list
 import plotly.graph_objs as go
+
+DEFAULT_TEMP: float = 298.15
 
 app = Dash()
 
@@ -176,16 +180,17 @@ def graph_panel() -> html.Div:
     State({"type": "reactant-selection", "index": 0}, "value"),
     State({"type": "controlled-dropdown", "index": 0}, "value"),
     State({"type": "reactant-input", "compound": ALL}, "value"),
+    State({"type": "reactant-input", "compound": ALL}, "id")
 )
 def update_graph(
     mode: str,
     compound_name: str, variable_name: str,
-    reactants: list[str], controlled: str, ratio_values: list[int]
+    reactants: list[str], controlled: str, ratio_values: list[int], ratio_ids: list[str]
 ) -> go.Figure:
     if mode == "compound":
         figure = update_compound_graph(compound_name, variable_name)
     elif mode == "reaction":
-        figure = update_reaction_graph(reactants, controlled, ratio_values)
+        figure = update_reaction_graph(reactants, controlled, ratio_values, ratio_ids)
     else:
         figure = go.Figure()
     return figure
@@ -214,9 +219,35 @@ def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
     )
     return figure
 
-def update_reaction_graph(reactants: list[str], controlled_var: str, ratios: list[int]) -> go.Figure:
+def clean_urg_inputs(reactants: list[str], controlled_var: str, ratios: list[int], ratio_ids: list[str]) -> tuple[set[Compound], Compound, dict[str, int]]:
 
-    pass
+    reactant_objs = set()
+    controlled_var_obj = None
+    ratio_dict = {}
+    for c in Compound_list:
+        if c.name in reactants:
+            
+
+
+                ###### Something to do with getting dictionaries of ratios of compounds because fuck ass couldnt let me work with that to begin with
+
+
+
+            reactant_objs.add(c)
+        if c.name == controlled_var:
+            controlled_var_obj = c
+    if not controlled_var_obj:
+        controlled_var_obj = list(reactant_objs)[0]
+    return reactant_objs, controlled_var_obj, ratio_dict
+
+def update_reaction_graph(reactants: list[str], controlled_var: str, ratios: list[int], ratio_ids: list[str]) -> go.Figure:
+
+    reactant_objs, controlled, ratio_dict = clean_urg_inputs(reactants, controlled_var, ratios, ratio_ids)
+    temp_dict = {}
+    for r in reactant_objs:
+        temp_dict[r] = DEFAULT_TEMP
+    reaction_obj = Reaction(reactant_objs, temp_dict)
+    x, y = reaction_obj.calc_flame_table(controlled, ratio_dict)
 
 if __name__ == "__main__":
     main()
