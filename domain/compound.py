@@ -6,27 +6,29 @@ from scipy.interpolate import make_interp_spline
 STANDARD_REF_TEMP = 298.15
 
 
-class Compound2:
+class Compound:
 
     def __init__(self, name: str, formula: str, id: str, data: CompoundData):
         self.name: str = name
         self.formula: str = formula
         self.id: str = id
-        self.data: CompoundData = data
+        self._data: CompoundData = data
 
         self._SH_function = make_interp_spline(
-            self.data.temperatures,
-            self.data.SH_list,
+            self._data.temperatures,
+            self._data.SH_list,
             k=1,
         )
 
         self._Hf_function = make_interp_spline(
-            self.data.temperatures,
-            self.data.Hf_list,
+            self._data.temperatures,
+            self._data.Hf_list,
             k=1,
         )
 
         self._logKf_function = self._make_logKf_function()
+
+        self.stdHf = self._Hf_function(STANDARD_REF_TEMP)
 
     def Hf(self, temperature: float = STANDARD_REF_TEMP) -> float:
         """
@@ -44,6 +46,9 @@ class Compound2:
         value = float(self._SH_function(temperature))
         return value
 
+    def get_temperatures(self) -> NDArray:
+        return self._data.temperatures
+
     def logKf(self, temperature: float) -> float:
         """
         Returns the logKf of the compound at a given temperature (K).
@@ -53,9 +58,9 @@ class Compound2:
         return value
 
     def _make_logKf_function(self):
-        finite_logKf_list: NDArray = self._get_finite_list(self.data.logKf_list)
+        finite_logKf_list: NDArray = self._get_finite_list(self._data.logKf_list)
         return make_interp_spline(
-            self.data.temperatures,
+            self._data.temperatures,
             finite_logKf_list,
             k=1,
         )

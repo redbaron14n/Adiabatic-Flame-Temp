@@ -1,6 +1,6 @@
 from services.comp_loader import CompoundLoader
 from domain.compound_data import CompoundData
-from domain.compound2 import Compound2
+from domain.compound import Compound
 
 
 def load_compound_data(compound_id: str) -> CompoundData:
@@ -11,28 +11,28 @@ def load_compound_data(compound_id: str) -> CompoundData:
 
 compounds: dict = {}
 
-compounds["Carbon_Dioxide"] = Compound2(
+compounds["Carbon_Dioxide"] = Compound(
     name="Carbon Dioxide",
     formula="CO2",
     id="Carbon_Dioxide",
     data=load_compound_data("Carbon_Dioxide"),
 )
 
-compounds["Methane"] = Compound2(
+compounds["Methane"] = Compound(
     name="Methane",
     formula="CH4",
     id="Methane",
     data=load_compound_data("Methane"),
 )
 
-compounds["Water"] = Compound2(
+compounds["Water"] = Compound(
     name="Water",
     formula="H2O",
     id="Water",
     data=load_compound_data("Water"),
 )
 
-compounds["Oxygen"] = Compound2(
+compounds["Oxygen"] = Compound(
     name="Oxygen",
     formula="O2",
     id="Oxygen",

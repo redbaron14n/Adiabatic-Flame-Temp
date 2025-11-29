@@ -1,5 +1,5 @@
 from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
-from class_files.reaction import Reaction
+from domain.reaction import Reaction
 import plotly.graph_objs as go
 from domain.compounds import compounds
 
