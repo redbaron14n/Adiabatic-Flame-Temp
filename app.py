@@ -78,6 +78,24 @@ def compound_controls(app) -> html.Div:
     def on_compound_variable(cv: str):
         _selected_compound_variable = cv
 
+    @app.callback(
+        Output("main-graph", "figure"),
+        Input("compound-update-graph", "n_clicks"),
+    )
+    def on_compound_graph_update() -> go.Figure:
+
+        compound = compounds[_selected_compound]
+        data = compound.get_data(_selected_compound_variable)
+        match _selected_compound_variable:
+            case "cp":
+                y_label = "Constant Pressure Heat Capacity (Cp) [J/(mol·K)]"
+            case "Hf":
+                y_label = "Standard Heat of Formation [kJ/mol]"
+            case "SH":
+                y_label = "Sensible Heat [kJ/mol]"
+            case "logKf":
+                y_label = "log Kf"
+
     return html.Div(
         id="compound-controls",
         children=[
@@ -91,20 +109,22 @@ def compound_controls(app) -> html.Div:
             dcc.Dropdown(
                 id="compound-variable",
                 options=[
-                    {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
-                    {"label": "Standard Entropy (S°)", "value": "s"},
-                    {"label": "Total Entropy Change (ΔS)", "value": "ds"},
-                    {"label": "Sensible Heat (SH)", "value": "sh"},
-                    {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "hf"},
-                    {
-                        "label": "Standard Gibbs Free Energy of Formation (ΔGf°)",
-                        "value": "gf",
-                    },
+                    # {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
+                    # {"label": "Standard Entropy (S°)", "value": "s"},
+                    # {"label": "Total Entropy Change (ΔS)", "value": "ds"},
+                    {"label": "Sensible Heat (SH)", "value": "SH"},
+                    {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "Hf"},
+                    # {
+                    #     "label": "Standard Gibbs Free Energy of Formation (ΔGf°)",
+                    #     "value": "gf",
+                    # },
                     {"label": "log Kf", "value": "logKf"},
                 ],
                 placeholder="Select a variable...",
                 value=_selected_compound_variable,
             ),
+            html.Hr(),
+            html.Button(id="compound-update-graph", children=["Update Graph"]),
         ],
     )
 

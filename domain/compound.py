@@ -57,6 +57,17 @@ class Compound:
         value = self._logKf_function(temperature)
         return value
 
+    def get_data(self, label: str):
+        match label:
+            case "SH":
+                return self._data.SH_list
+            case "Hf":
+                return self._data.Hf_list
+            case "logKf":
+                return self._data.logKf_list
+            case _:
+                raise ValueError(f"Data label '{label}' not recognized.")
+
     def _make_logKf_function(self):
         finite_logKf_list: NDArray = self._get_finite_list(self._data.logKf_list)
         return make_interp_spline(
