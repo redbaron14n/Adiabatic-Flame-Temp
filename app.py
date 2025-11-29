@@ -69,7 +69,13 @@ def update_mode_controls(mode: str) -> html.Div:
         return html.Div("Invalid mode")
 
 
+_selected_compound: str = list(compounds.values())[0].id
+
+
 def compound_controls() -> html.Div:
+
+    # Define callback for "compound-selection" control here.
+    # In callback, set _selected_compound.
 
     return html.Div(
         id="compound-controls",
@@ -77,8 +83,8 @@ def compound_controls() -> html.Div:
             html.Label("Select Compound"),
             dcc.Dropdown(
                 id="compound-selection",
-                options=[{"label": c.name, "value": c.name} for c in compounds.keys()],
-                value=list(compounds.values())[0].name,
+                options=[{"label": c.name, "value": c.id} for c in compounds.values()],
+                value=_selected_compound,
             ),
             html.Label("Select Variable"),
             dcc.Dropdown(
@@ -109,7 +115,7 @@ def reaction_controls() -> html.Div:
             html.Label("Select Reactants"),
             dcc.Dropdown(
                 id={"type": "reactant-selection", "index": 0},
-                options=[{"label": c.name, "value": c.name} for c in compounds.keys()],
+                options=[{"label": c.name, "value": c.id} for c in compounds.values()],
                 placeholder="Select reactants...",
                 multi=True,
             ),
