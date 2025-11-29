@@ -1,20 +1,49 @@
 from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
+from domain.compound import Compound
 from domain.reaction import Reaction
 import plotly.graph_objs as go
 from domain.compounds import compounds
+from numpy.typing import NDArray
 
 DEFAULT_TEMP: float = 298.15
 
-# These are the variables for the reaction.
-# Several UI inputs set them.
-# Another part of the UI shows the result of a reaction based on these inputs.
-_selected_compound: str = list(compounds.values())[0].id
-_selected_compound_variable: str = ""
-_reactants: list = []
-# more...
-
 
 def create_layout(app) -> html.Div:
+
+    @app.callback(
+        Output("main-graph", "figure"),
+        Input("compound-update-graph", "n_clicks"),
+        State("compound-selection", "value"),
+        State("compound-variable", "value"),
+    )
+    def on_compound_graph_update(
+        test, compound_id: str, compound_var: str
+    ) -> go.Figure:
+
+        print("Hello")
+
+        compound: Compound = compounds[compound_id]
+        y_vals: NDArray = compound.get_data(compound_var)
+        x_vals: NDArray = compound.get_temperatures()
+        match compound_var:
+            case "cp":
+                y_label = "Constant Pressure Heat Capacity (Cp) [J/(mol·K)]"
+            case "Hf":
+                y_label = "Standard Heat of Formation [kJ/mol]"
+            case "SH":
+                y_label = "Sensible Heat [kJ/mol]"
+            case "logKf":
+                y_label = "log Kf"
+        figure = go.Figure()
+        figure.add_trace(
+            go.Scatter(x=x_vals, y=y_vals, mode="lines+markers", name=compound.name)
+        )
+        figure.update_layout(
+            title=f"{compound.name} - {y_label}",
+            xaxis_title="Temperature (K)",
+            yaxis_title=y_label,
+        )
+        return figure
 
     return html.Div(
         className="app-div", children=[control_panel(app), graph_panel(app)]
@@ -78,24 +107,6 @@ def compound_controls(app) -> html.Div:
     def on_compound_variable(cv: str):
         _selected_compound_variable = cv
 
-    @app.callback(
-        Output("main-graph", "figure"),
-        Input("compound-update-graph", "n_clicks"),
-    )
-    def on_compound_graph_update() -> go.Figure:
-
-        compound = compounds[_selected_compound]
-        data = compound.get_data(_selected_compound_variable)
-        match _selected_compound_variable:
-            case "cp":
-                y_label = "Constant Pressure Heat Capacity (Cp) [J/(mol·K)]"
-            case "Hf":
-                y_label = "Standard Heat of Formation [kJ/mol]"
-            case "SH":
-                y_label = "Sensible Heat [kJ/mol]"
-            case "logKf":
-                y_label = "log Kf"
-
     return html.Div(
         id="compound-controls",
         children=[
@@ -103,7 +114,7 @@ def compound_controls(app) -> html.Div:
             dcc.Dropdown(
                 id="compound-selection",
                 options=[{"label": c.name, "value": c.id} for c in compounds.values()],
-                value=_selected_compound,
+                value="Methane",
             ),
             html.Label("Select Variable"),
             dcc.Dropdown(
@@ -121,7 +132,7 @@ def compound_controls(app) -> html.Div:
                     {"label": "log Kf", "value": "logKf"},
                 ],
                 placeholder="Select a variable...",
-                value=_selected_compound_variable,
+                value="Hf",
             ),
             html.Hr(),
             html.Button(id="compound-update-graph", children=["Update Graph"]),
@@ -139,7 +150,7 @@ def graph_panel(app) -> html.Div:
 
 
 if __name__ == "__main__":
-    app = Dash()
+    app = Dash(suppress_callback_exceptions=True)
     app.title = "Adiabatic Flame Temperature"
     app.layout = create_layout(app)
     app.run(debug=True)
