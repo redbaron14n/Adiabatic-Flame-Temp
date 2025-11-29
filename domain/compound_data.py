@@ -1,5 +1,4 @@
 import numpy
-import services.comp_loader as loader
 from dataclasses import dataclass
 
 

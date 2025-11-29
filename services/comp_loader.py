@@ -19,7 +19,7 @@ class CompoundLoader:
         temperatures = data_table["T"].to_numpy(dtype=np.float64)
         SH_list = data_table["SH"].to_numpy()
         Hf_list = data_table["Hf"].to_numpy()
-        logKf_list = self._convert_infs(data_table["logKf"])
+        logKf_list = self._convert_infs(data_table["logKf"].to_numpy())
 
         compound_data = CompoundData(
             temperatures=temperatures,
