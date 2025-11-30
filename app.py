@@ -1,253 +1,278 @@
 from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
-from class_files.compound import Compound
-from class_files.reaction import Reaction
-from config import Compound_list
+from domain.compound import Compound
+from domain.reaction import Reaction
 import plotly.graph_objs as go
+from domain.compounds import compounds
+from numpy.typing import NDArray
 
 DEFAULT_TEMP: float = 298.15
 
-app = Dash()
+app = Dash(suppress_callback_exceptions=True)
 
-def main() -> None:
 
-    app.title = "Adiabatic Flame Temperature"
-    app.layout = create_layout()
-    app.run(debug=True)
+@app.callback(
+    Output("main-graph", "figure"),
+    Input("update-graph", "n_clicks"),
+    # Input("reaction-update-graph", "n_clicks"),
+    State("mode-dropdown", "value"),
+    State("compound-selection", "value"),
+    State("compound-variable", "value"),
+    State("reactant-selection", "value"),
+    State("reaction-variable", "value"),
+    State({"type": "ratio-input", "compound": ALL}, "value"),
+)
+def on_graph_update(
+    n_clicks,
+    mode: str,
+    compound_id: str,
+    compound_var: str,
+    r_ids: list[str],
+    controlled_r: str,
+    ratios: list[float],
+) -> go.Figure:
+    if mode == "compound":
+        return on_compound_graph_update(compound_id, compound_var)
+    elif mode == "reaction":
+        return on_reaction_graph_update(r_ids, controlled_r, ratios)
+    else:
+        return go.Figure()
+
 
 def create_layout() -> html.Div:
 
-    return html.Div(
-        className = "app-div",
-        children = [
-            control_panel(),
-            graph_panel()
-        ]
-    )
+    return html.Div(className="app-div", children=control_panel())
 
-def control_panel() -> html.Div:
-
-    return html.Div(
-        className = "control-panel",
-        children = [
-            html.H1(app.title),
-            html.Hr(),
-            mode_dropdown(),
-            html.Div(id = "mode-controls"),
-            html.Hr(),
-            html.Button(
-                id = "update-graph-button",
-                children = ["Update Graph"]
-            )
-        ],
-        style = {"width": "25%", "display": "inline-block", "verticalAlign": "top", "padding": "20px"}
-    )
-
-def mode_dropdown() -> html.Div:
-
-    return html.Div(
-        children = [
-            html.Label("Graph Mode"),
-            dcc.Dropdown(
-                id = "mode-dropdown",
-                options = [
-                    {"label": "Compound Data", "value": "compound"},
-                    {"label": "Reaction Flame Temperature", "value": "reaction"}
-                ],
-                value = "reaction"
-            )
-        ]
-    )
 
 @app.callback(
-    Output("mode-controls", "children"),
-    Input("mode-dropdown", "value")
+    Output("mode-controls-div", "children"),
+    Input("mode-dropdown", "value"),
 )
-def update_mode_controls(mode: str) -> html.Div:
-
+def update_mode_controls(mode: str):
     if mode == "compound":
         return compound_controls()
     elif mode == "reaction":
         return reaction_controls()
     else:
         return html.Div("Invalid mode")
-    
+
+
+def control_panel() -> html.Div:
+
+    return html.Div(
+        id="control-panel",
+        children=[
+            html.H1(app.title),
+            html.Hr(),
+            mode_dropdown(),
+            html.Div(id="mode-controls-div"),
+            # html.Hr(),
+            # html.Button(id="update-graph-button", children=["Update Graph"]),
+        ],
+        style={
+            "width": "25%",
+            "display": "inline-block",
+            "verticalAlign": "top",
+            "padding": "20px",
+        },
+    )
+
+
+def mode_dropdown() -> html.Div:
+    return html.Div(
+        children=[
+            html.Label("Graph Mode"),
+            dcc.Dropdown(
+                id="mode-dropdown",
+                options=[
+                    {"label": "Compound Data", "value": "compound"},
+                    {"label": "Reaction Flame Temperature", "value": "reaction"},
+                ],
+                value="reaction",
+            ),
+        ]
+    )
+
+
+@app.callback(
+    Output("compound-graph", "figure"),
+    Input("compound-update-graph", "n_clicks"),
+    State("compound-selection", "value"),
+    State("compound-variable", "value"),
+)
+def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figure:
+
+    compound: Compound = compounds[compound_id]
+    y_vals: NDArray = compound.get_data(compound_var)
+    x_vals: NDArray = compound.get_temperatures()
+    match compound_var:
+        case "cp":
+            y_label = "Constant Pressure Heat Capacity (Cp) [J/(mol·K)]"
+        case "Hf":
+            y_label = "Standard Heat of Formation [kJ/mol]"
+        case "SH":
+            y_label = "Sensible Heat [kJ/mol]"
+        case "logKf":
+            y_label = "log Kf"
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(x=x_vals, y=y_vals, mode="lines+markers", name=compound.name)
+    )
+    figure.update_layout(
+        title=f"{compound.name} - {y_label}",
+        xaxis_title="Temperature (K)",
+        yaxis_title=y_label,
+    )
+    return figure
+
+
+def graph_panel(graph_id: str) -> html.Div:
+    return html.Div(
+        className="graph-panel",
+        id="graph-area",
+        children=[dcc.Graph(id=graph_id, style={"height": "90vh"})],
+        style={"width": "70%", "display": "inline-block", "padding": "20px"},
+    )
+
+
 def compound_controls() -> html.Div:
 
     return html.Div(
-        id = "compound-controls",
-        children = [
+        id="compound-controls",
+        children=[
             html.Label("Select Compound"),
             dcc.Dropdown(
-                id = "compound-selection",
-                options = [{"label": c.name, "value": c.name} for c in Compound_list],
-                value = Compound_list[0].name
+                id="compound-selection",
+                options=[{"label": c.name, "value": c.id} for c in compounds.values()],
+                value="Methane",
             ),
             html.Label("Select Variable"),
             dcc.Dropdown(
-                id = "compound-variable",
-                options = [
-                    {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
-                    {"label": "Standard Entropy (S°)", "value": "s"},
-                    {"label": "Total Entropy Change (ΔS)", "value": "ds"},
-                    {"label": "Sensible Heat (SH)", "value": "sh"},
-                    {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "hf"},
-                    {"label": "Standard Gibbs Free Energy of Formation (ΔGf°)", "value": "gf"},
-                    {"label": "log Kf", "value": "logKf"}
+                id="compound-variable",
+                options=[
+                    # {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
+                    # {"label": "Standard Entropy (S°)", "value": "s"},
+                    # {"label": "Total Entropy Change (ΔS)", "value": "ds"},
+                    {"label": "Sensible Heat (SH)", "value": "SH"},
+                    {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "Hf"},
+                    # {
+                    #     "label": "Standard Gibbs Free Energy of Formation (ΔGf°)",
+                    #     "value": "gf",
+                    # },
+                    {"label": "log Kf", "value": "logKf"},
                 ],
-                placeholder = "Select a variable..."
-            )
-        ]
+                placeholder="Select a variable...",
+                value="Hf",
+            ),
+            html.Hr(),
+            html.Button(id="compound-update-graph", children=["Update Graph"]),
+            graph_panel("compound-graph"),
+        ],
     )
+
+
+@app.callback(
+    Output("reaction-variable", "options"),
+    Input("reactant-selection", "value"),
+)
+def on_reactant_selection(r_ids: list[str]) -> list[dict[str, str]]:
+    return [{"label": compounds[r].name, "value": compounds[r].id} for r in r_ids]
+
+
+@app.callback(
+    Output("reactant-ratio-boxes", "children"),
+    Input("reactant-selection", "value"),
+    Input("reaction-variable", "value"),
+)
+def update_reactant_ratio_boxes(
+    all_reactants: list[str], controlled: str
+) -> list[html.Div]:
+
+    boxes = []
+    for r in all_reactants:
+        if r == controlled:
+            continue
+        boxes.append(
+            html.Div(
+                [
+                    html.Label(f"{compounds[r].name} Ratio: "),
+                    dcc.Input(
+                        id={"type": "ratio-input", "compound": r},
+                        type="number",
+                        min=1,
+                        value=1,
+                    ),
+                ],
+                style={"margin-bottom": "8px"},
+            )
+        )
+    return boxes
+
+
+@app.callback(
+    Output("reaction-graph", "figure"),
+    Input("reaction-update-graph", "n_clicks"),
+    State("reactant-selection", "value"),
+    State("reaction-variable", "value"),
+    State({"type": "ratio-input", "compound": ALL}, "value"),
+)
+def on_reaction_graph_update(
+    _, r_ids: list[str], controlled: str, ratios: list[float | int]
+):
+    if not ratios:
+        return go.Figure()
+
+    controlled_reactant: Compound = compounds[controlled]
+    reactants = set(compounds[r] for r in r_ids)
+    all_reactants = reactants.copy()
+    reactants.remove(controlled_reactant)
+    concentrations = {controlled_reactant: 1.0}  # Change to dict[str, float]
+    for i, r in enumerate(reactants):
+        concentrations[r] = ratios[i]  # Change to dict[str, float]
+    temps = {}
+    for r in all_reactants:
+        temps[r] = DEFAULT_TEMP
+    x, t = Reaction(all_reactants, temps).calc_flame_table(
+        controlled_reactant, concentrations
+    )
+    y_label = "Flame Temperature (K)"
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(
+            x=x, y=t, mode="lines+markers", name="Flame Temperature vs Concentration"
+        )
+    )
+    figure.update_layout(
+        title=f"Flame Temperature vs {controlled_reactant.name} Concentration",
+        xaxis_title=f"{controlled_reactant.name} Concentration (mol fraction)",
+        yaxis_title=y_label,
+    )
+    return figure
+
 
 def reaction_controls() -> html.Div:
 
     return html.Div(
-        id = "reaction-controls",
-        children = [
+        id="reaction-controls",
+        children=[
             html.Label("Select Reactants"),
             dcc.Dropdown(
-                id = {"type": "reactant-selection", "index": 0},
-                options = [{"label": c.name, "value": c.name} for c in Compound_list],
-                placeholder = "Select reactants...",
-                multi = True
+                id="reactant-selection",
+                options=[{"label": c.name, "value": c.id} for c in compounds.values()],
+                multi=True,
+                value=["Methane", "Oxygen"],
             ),
             html.Label("Select Controlled Reactant"),
-            dcc.Dropdown(
-                id = {"type": "controlled-dropdown", "index": 0},
-                options = [],
-                value = None
-            ),
+            dcc.Dropdown(id="reaction-variable", value="Methane"),
             html.Label("Ratios of Other Reactants"),
-            html.Div(id = {"type": "reactant-ratios", "index": 0}),
-            dcc.Checklist(
-                options = [{"label": "Calculate Dissociation", "value": "dissociation"}],
-                value = []
-            )
-        ]
+            html.Div(id="reactant-ratio-boxes"),
+            html.Hr(),
+            html.Button(id="reaction-update-graph", children=["Update Graph"]),
+            graph_panel("reaction-graph"),
+        ],
     )
 
-@app.callback(
-    Output({"type": "controlled-dropdown", "index": MATCH}, "options"),
-    Input({"type": "reactant-selection", "index": MATCH}, "value")
-)
-def on_reactants_selected(reactants: list[str]) -> list[dict[str, str]]:
-    options = []
-    if reactants:
-        options = [{"label": r, "value": r} for r in reactants]
-    return options
-
-@app.callback(
-    Output({"type": "reactant-ratios", "index": MATCH}, "children"),
-    Input({"type": "reactant-selection", "index": MATCH}, "value"),
-    Input({"type": "controlled-dropdown", "index": MATCH}, "value")
-)
-def update_ratio_boxes(reactants: list[str], controlled: str) -> list[html.Div]:
-
-    boxes = []
-    if not reactants:
-        return boxes
-    for r in reactants:
-        if r == controlled:
-            continue
-        boxes.append(html.Div([
-                    html.Label(f"{r} Ratio: "),
-                    dcc.Input(
-                        id = {"type": "reactant-input", "compound": r},
-                        type = "number",
-                        min = 1,
-                        value = 1
-                        )],
-                style = {"margin-bottom": "8px"}))
-    return boxes
-
-def graph_panel() -> html.Div:
-
-    return html.Div(
-        className = "graph-panel",
-        children = [dcc.Graph(id = "main-graph", style = {"height": "90vh"})],
-        style = {"width": "70%", "display": "inline-block", "padding": "20px"}
-    )
-
-@app.callback(
-    Output("main-graph", "figure"),
-    Input("mode-dropdown", "value"),
-
-    # Compound mode states
-    State("compound-selection", "value"),
-    State("compound-variable", "value"),
-
-    # Reaction mode states
-    State({"type": "reactant-selection", "index": 0}, "value"),
-    State({"type": "controlled-dropdown", "index": 0}, "value"),
-    State({"type": "reactant-input", "compound": ALL}, "value"),
-    State({"type": "reactant-input", "compound": ALL}, "id")
-)
-def update_graph(
-    mode: str,
-    compound_name: str, variable_name: str,
-    reactants: list[str], controlled: str, ratio_values: list[int], ratio_ids: list[str]
-) -> go.Figure:
-    if mode == "compound":
-        figure = update_compound_graph(compound_name, variable_name)
-    elif mode == "reaction":
-        figure = update_reaction_graph(reactants, controlled, ratio_values, ratio_ids)
-    else:
-        figure = go.Figure()
-    return figure
-
-def update_compound_graph(compound_name: str, variable_name: str) -> go.Figure:
-
-    compound = next(c for c in Compound_list if c.name == compound_name)
-    if variable_name == "hf":
-        data = compound.hf_table()
-        y_label = "Heat of Formation (kJ/mol)"
-    elif variable_name == "sh":
-        data = compound.sh_table()
-        y_label = "Sensible Heat (kJ/mol)"
-    else:
-        data = compound.logKf_table()
-        y_label = "log Kf"
-    t, y = data
-    figure = go.Figure()
-    figure.add_trace(go.Scatter(x = t, y = y, mode = "lines+markers", name = compound_name))
-    figure.update_layout(
-        title = f"{compound_name} - {y_label}",
-        xaxis_title = "Temperature (K)",
-        yaxis_title = y_label,
-        template = "plotly_white",
-        showlegend = False
-    )
-    return figure
-
-def clean_urg_inputs(reactants: list[str], controlled_var: str, ratios: list[int], ratio_ids: list[str]) -> tuple[set[Compound], Compound, dict[str, int]]:
-
-    reactant_objs = set()
-    controlled_var_obj = None
-    ratio_dict = {}
-    for c in Compound_list:
-        if c.name in reactants:
-            
-
-
-                ###### Something to do with getting dictionaries of ratios of compounds because fuck ass couldnt let me work with that to begin with
-
-
-
-            reactant_objs.add(c)
-        if c.name == controlled_var:
-            controlled_var_obj = c
-    if not controlled_var_obj:
-        controlled_var_obj = list(reactant_objs)[0]
-    return reactant_objs, controlled_var_obj, ratio_dict
-
-def update_reaction_graph(reactants: list[str], controlled_var: str, ratios: list[int], ratio_ids: list[str]) -> go.Figure:
-
-    reactant_objs, controlled, ratio_dict = clean_urg_inputs(reactants, controlled_var, ratios, ratio_ids)
-    temp_dict = {}
-    for r in reactant_objs:
-        temp_dict[r] = DEFAULT_TEMP
-    reaction_obj = Reaction(reactant_objs, temp_dict)
-    x, y = reaction_obj.calc_flame_table(controlled, ratio_dict)
 
 if __name__ == "__main__":
-    main()
+    app.title = "Adiabatic Flame Temperature"
+    app.layout = create_layout()
+    app.run(debug=True)
