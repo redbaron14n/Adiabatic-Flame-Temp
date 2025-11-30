@@ -89,14 +89,8 @@ class Reaction:
     def _validate_concentrations(self, concentrations: dict[Compound, float]):
 
         self._validate_reactants(set(concentrations.keys()))
-        if not np.isclose(sum(concentrations.values()), 1.0):
-            raise ValueError("Concentrations must sum to 1.")
-        elif any(c <= 0 for c in concentrations.values()):
+        if any(c <= 0 for c in concentrations.values()):
             raise ValueError("Concentrations must be greater than 0")
-        elif (len(concentrations) != 1) and any(
-            c >= 1 for c in concentrations.values()
-        ):
-            raise ValueError("Individual concentrations must be less than 1.")
 
     def _find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
 

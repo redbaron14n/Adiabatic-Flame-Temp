@@ -23,13 +23,14 @@ from domain.compounds import compounds
 
 
 def products_from_reactants(
-    reactants: set[Compound], dissociation: bool
+    reactants: set[Compound], dissociation: bool = False
 ) -> set[Compound]:  # Placeholder function for potential reaction product generation
 
     if (reactants == {compounds["Methane"], compounds["Oxygen"]}) and not dissociation:
         products = {compounds["Carbon_Dioxide"], compounds["Water"]}
     else:
         raise NotImplementedError(
-            "Reaction product generation not implemented for given reactants."
+            f"Reaction product generation not implemented for given reactants.\n"
+            f"{[r.name for r in reactants]}"
         )
     return products
