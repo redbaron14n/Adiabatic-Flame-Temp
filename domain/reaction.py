@@ -19,7 +19,7 @@ class Reaction:
     def __init__(
         self,
         reactants: set[Compound],
-        temperatures: dict[Compound, float],
+        temperatures: dict[Compound, float],  # Change to dict[str, float]
         dissociation: bool = False,
     ):  # Potentially arguments for reaction complexity
         """
@@ -58,7 +58,9 @@ class Reaction:
         )
         self.stoichiometry = (balanced_reactants, balanced_products)
 
-    def _set_temperatures(self, temperatures: dict[Compound, float]):
+    def _set_temperatures(
+        self, temperatures: dict[Compound, float]
+    ):  # Change to dict[str, float]
 
         if len(temperatures) != len(self.reactants):
             raise ValueError(
@@ -86,13 +88,17 @@ class Reaction:
             proportions[c] = ratios[c] / total
         return proportions
 
-    def _validate_concentrations(self, concentrations: dict[Compound, float]):
+    def _validate_concentrations(
+        self, concentrations: dict[Compound, float]
+    ):  # Change to dict[str, float]
 
         self._validate_reactants(set(concentrations.keys()))
         if any(c <= 0 for c in concentrations.values()):
             raise ValueError("Concentrations must be greater than 0")
 
-    def _find_extent_of_reaction(self, concentrations: dict[Compound, float]) -> float:
+    def _find_extent_of_reaction(
+        self, concentrations: dict[Compound, float]
+    ) -> float:  # Change to dict[str, float]
 
         weighted_conc = {
             c: concentrations[c] / self.stoichiometry[0][c.formula]
@@ -102,7 +108,9 @@ class Reaction:
         return extent
 
     def _compute_final_species_amounts(
-        self, concentrations: dict[Compound, float], extent: float
+        self,
+        concentrations: dict[Compound, float],
+        extent: float,  # Change to dict[str, float]
     ) -> dict[Compound, float]:
 
         final_amounts = {}
@@ -115,7 +123,9 @@ class Reaction:
             final_amounts[product] = formed_amount
         return final_amounts
 
-    def _calc_Hf(self, final_amounts: dict[Compound, float]) -> float:
+    def _calc_Hf(
+        self, final_amounts: dict[Compound, float]
+    ) -> float:  # Change to dict[str, float]
 
         delta_Hf = 0.0
         for product in self.products:
@@ -124,7 +134,9 @@ class Reaction:
             delta_Hf -= final_amounts[reactant] * reactant.stdHf
         return delta_Hf
 
-    def _calc_SH_reactants(self, final_amounts: dict[Compound, float]) -> float:
+    def _calc_SH_reactants(
+        self, final_amounts: dict[Compound, float]
+    ) -> float:  # Change to dict[str, float]
 
         total_SH = 0.0
         for reactant in self.reactants:
@@ -133,7 +145,9 @@ class Reaction:
         return total_SH
 
     def _calc_SH_products(
-        self, final_amounts: dict[Compound, float], temperature: float
+        self,
+        final_amounts: dict[Compound, float],
+        temperature: float,  # Change to dict[str, float]
     ) -> float:
 
         total_SH = 0.0
@@ -142,7 +156,9 @@ class Reaction:
         return total_SH
 
     def _energy_balance(
-        self, temperature: float, final_amounts: dict[Compound, float]
+        self,
+        temperature: float,
+        final_amounts: dict[Compound, float],  # Change to dict[str, float]
     ) -> float:
 
         residual = float(
@@ -162,7 +178,9 @@ class Reaction:
         self._min_temp = min_temp
         self._max_temp = max_temp
 
-    def calc_flame_temp(self, concentrations: dict[Compound, float]) -> float:
+    def calc_flame_temp(
+        self, concentrations: dict[Compound, float]
+    ) -> float:  # Change to dict[str, float]
 
         self._validate_concentrations(concentrations)
         extent = self._find_extent_of_reaction(concentrations)
@@ -186,9 +204,9 @@ class Reaction:
     def _generate_concentrations(
         self,
         variable_compound: Compound,
-        base_concentrations: dict[Compound, float | int],
+        base_concentrations: dict[Compound, float | int],  # Change to dict[str, float]
         resolution: int = 100,
-    ) -> list[dict[Compound, float]]:
+    ) -> list[dict[Compound, float]]:  # Change to dict[str, float]
 
         if all(isinstance(coeff, int) for coeff in base_concentrations.values()):
             base_concentrations = self._ratio_to_prop(base_concentrations)
@@ -201,11 +219,11 @@ class Reaction:
         concentration_list = []
         x_val = delta_x
         while x_val < 1.0:
-            conc_dict = {variable_compound: x_val}
+            conc_dict = {variable_compound: x_val}  # Change to dict[str, float]
             for compound in dependent_compounds:
                 base_conc = base_concentrations[compound]
                 adjusted_conc = base_conc * (1.0 - x_val) / total_dependent_conc
-                conc_dict[compound] = adjusted_conc
+                conc_dict[compound] = adjusted_conc  # Change to dict[str, float]
             concentration_list.append(conc_dict)
             x_val += delta_x
         return concentration_list
@@ -213,7 +231,7 @@ class Reaction:
     def calc_flame_table(
         self,
         variable_compound: Compound,
-        base_concentrations: dict[Compound, float | int],
+        base_concentrations: dict[Compound, float | int],  # Change to dict[str, float]
         resolution: int = 100,
     ) -> NDArray[np.float64]:
 
@@ -223,7 +241,7 @@ class Reaction:
         x_values = []
         flame_temps = []
         for conc_dict in concentration_dicts:
-            x_values.append(conc_dict[variable_compound])
+            x_values.append(conc_dict[variable_compound])  # Change to dict[str, float]
             flame_temp = self.calc_flame_temp(conc_dict)
             flame_temps.append(flame_temp)
         x_values, flame_temps = np.array(x_values), np.array(flame_temps)
