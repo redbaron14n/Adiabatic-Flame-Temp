@@ -145,8 +145,8 @@ class Reaction:
             temperatures = compounds[component].get_temperatures()
             min_temp = max(min_temp, np.min(temperatures))
             max_temp = min(max_temp, np.max(temperatures))
-        self._min_temp = min_temp
-        self._max_temp = max_temp
+        self.min_temp = min_temp
+        self.max_temp = max_temp
 
 
     def _validate_concentrations(self, conc_dict: dict[str, float]) -> None:
@@ -161,10 +161,10 @@ class Reaction:
         self._validate_concentrations(concentrations)
         extent = self._find_extent_of_reaction(concentrations)
         final_amounts = self._compute_final_species_amounts(concentrations, extent)
-        if (self._energy_balance(self._min_temp, final_amounts) * self._energy_balance(self._max_temp, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
+        if (self._energy_balance(self.min_temp, final_amounts) * self._energy_balance(self.max_temp, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
             flame_temp = np.nan
         else:
-            result = brentq(self._energy_balance, self._min_temp, self._max_temp, args=(final_amounts))
+            result = brentq(self._energy_balance, self.min_temp, self.max_temp, args=(final_amounts))
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
 

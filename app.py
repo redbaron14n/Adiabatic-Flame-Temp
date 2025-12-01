@@ -128,7 +128,6 @@ def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figur
 def graph_panel(graph_id: str) -> html.Div:
     return html.Div(
         className="graph-panel",
-        id="graph-area",
         children=[dcc.Graph(id=graph_id, style={"height": "90vh"})],
         style={"width": "70%", "display": "inline-block", "padding": "20px"},
     )
@@ -231,7 +230,8 @@ def on_reaction_graph_update(
     temps = {}
     for r in all_reactants:
         temps[r] = DEFAULT_TEMP
-    x, t = Reaction(all_reactants, temps).calc_flame_table(
+    reaction = Reaction(all_reactants, temps)
+    x, t = reaction.calc_flame_table(
         controlled, concentrations
     )
     y_label = "Flame Temperature (K)"
@@ -241,6 +241,7 @@ def on_reaction_graph_update(
             x=x, y=t, mode="lines+markers", name="Flame Temperature vs Concentration"
         )
     )
+    figure.update_yaxes(range = [reaction.min_temp, reaction.max_temp])
     figure.update_layout(
         title=f"Flame Temperature vs {compounds[controlled].name} Concentration",
         xaxis_title=f"{compounds[controlled].name} Concentration (mol fraction)",

@@ -11,6 +11,8 @@ def products_from_reactants(reactants: set[str], dissociation: bool = False) -> 
 
     if (reactants == {"Methane", "Oxygen"}) and not dissociation:
         products = {"Carbon_Dioxide", "Water"}
+    elif (reactants == {"Hydrogen", "Oxygen"}) and not dissociation:
+        products = {"Water"}
     else:
         raise NotImplementedError(
             f"Reaction product generation not implemented for given reactants.\n"
