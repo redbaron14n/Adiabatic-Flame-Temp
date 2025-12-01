@@ -30,8 +30,8 @@ class Reaction:
         @param temperatures : dict[str, float] - Dictionary mapping each reactant Compound.id to its entry temperature (K).
         @param dissociation : bool - Flag indicating whether to consider dissociation in the reaction (default is False).
 
-        @attrib reactants : set[Compound] - Set of Compound objects representing the reactants of the reaction.
-        @attrib products : set[Compound] - Set of Compound objects representing the products of the reaction.
+        @attrib reactants : set[str] - Set of Compound objects representing the reactants of the reaction.
+        @attrib products : set[str] - Set of Compound objects representing the products of the reaction.
         @attrib stoichiometry : tuple[dict[str, int], dict[str, int]] - Tuple containing two dictionaries representing the stoichiometric coefficients of reactants and products.
         @attrib delta_Hf : float - Total formation enthalpy change (kJ) for the reaction.
         """
@@ -79,22 +79,6 @@ class Reaction:
             raise ValueError(
                 f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}"
             )
-
-
-    def _ratio_to_prop(self, ratios: dict[str, float | int]) -> dict[str, float]:
-
-        total = sum(ratios.values())
-        proportions = {}
-        for c in ratios.keys():
-            proportions[c] = ratios[c] / total
-        return proportions
-
-
-    def _validate_concentrations(self, concentrations: dict[str, float]):
-
-        self._validate_reactants(set(concentrations.keys()))
-        if any(c <= 0 for c in concentrations.values()):
-            raise ValueError("Concentrations must be greater than 0")
 
 
     def _find_extent_of_reaction(self, concentrations: dict[str, float]) -> float:
@@ -165,6 +149,13 @@ class Reaction:
         self._max_temp = max_temp
 
 
+    def _validate_concentrations(self, conc_dict: dict[str, float]) -> None:
+
+        total = sum(conc_dict.values())
+        if not np.isclose(total, 1.0):
+            raise ValueError(f"Concentrations do not sum to 1.0. Sum: {total:.5f}")
+
+
     def calc_flame_temp(self, concentrations: dict[str, float]) -> float:
 
         self._validate_concentrations(concentrations)
@@ -178,27 +169,39 @@ class Reaction:
         return flame_temp
 
 
-    def _generate_concentrations(self, variable_compound: str, base_concentrations: dict[str, float | int], resolution: int = 100) -> list[dict[str, float]]:
+    def _normalize(self, d: dict[str, float]) -> dict[str, float]:
 
-        if all(isinstance(coeff, int) for coeff in base_concentrations.values()):
-            base_concentrations = self._ratio_to_prop(base_concentrations)
-        self._validate_concentrations(base_concentrations)
-        delta_x = 1.0 / (
-            resolution + 1
-        )  # Avoid 0 and 1 concentrations while maintaining resolution
-        dependent_compounds = self.reactants - {variable_compound}
-        total_dependent_conc = sum(base_concentrations[c] for c in dependent_compounds)
-        concentration_list = []
+        total = sum(d.values())
+        return {k: v/total for k, v in d.items()}
+    
+
+    def _scale_dependents(self, variable: str, x: float, ratios: dict[str, float]) -> dict[str, float]:
+
+        """
+        @param (str) variable : The compound id corresponding to the controlled reactant
+        @param (float) x : The current concentration of the controlled reactant
+        @param (dict[str, float]) ratios : The dictionary mapping the ratios of all of the reactants, including the variable
+        """
+
+        dependents = {k: v for k, v in ratios.items() if k != variable}
+        dependents = self._normalize(dependents)
+        leftover = 1.0 - x
+        return {k: leftover * prop for k, prop in dependents.items()}
+    
+
+    def _generate_concentrations(self, variable: str, base_concs: dict[str, float], resolution: int = 100) -> list[dict[str, float]]:
+
+        base_ratios = self._normalize(base_concs)
+        delta_x = 1.0 / (resolution + 1)
+        conc_list = []
         x_val = delta_x
         while x_val < 1.0:
-            conc_dict = {variable_compound: x_val}
-            for compound in dependent_compounds:
-                base_conc = base_concentrations[compound]
-                adjusted_conc = base_conc * (1.0 - x_val) / total_dependent_conc
-                conc_dict[compound] = adjusted_conc
-            concentration_list.append(conc_dict)
+            conc_dict = {variable: x_val}
+            scaled_dependents = self._scale_dependents(variable, x_val, base_ratios)
+            conc_dict.update(scaled_dependents)
+            conc_list.append(conc_dict)
             x_val += delta_x
-        return concentration_list
+        return conc_list
 
 
     def calc_flame_table(self, variable_compound: str, base_concentrations: dict[str, float | int], resolution: int = 100) -> NDArray[np.float64]:
