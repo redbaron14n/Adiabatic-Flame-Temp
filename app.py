@@ -220,18 +220,19 @@ def on_reaction_graph_update(
     if not ratios:
         return go.Figure()
 
-    controlled_reactant: Compound = compounds[controlled]
-    reactants = set(compounds[r] for r in r_ids)
+    # controlled_reactant: Compound = compounds[controlled]
+    # reactants = set(compounds[r] for r in r_ids)
+    reactants = set(r for r in r_ids)
     all_reactants = reactants.copy()
-    reactants.remove(controlled_reactant)
-    concentrations = {controlled_reactant: 1.0}  # Change to dict[str, float]
+    reactants.remove(controlled)
+    concentrations = {controlled: 1.0}  # Change to dict[str, float]
     for i, r in enumerate(reactants):
         concentrations[r] = ratios[i]  # Change to dict[str, float]
     temps = {}
     for r in all_reactants:
         temps[r] = DEFAULT_TEMP
     x, t = Reaction(all_reactants, temps).calc_flame_table(
-        controlled_reactant, concentrations
+        controlled, concentrations
     )
     y_label = "Flame Temperature (K)"
     figure = go.Figure()
@@ -241,8 +242,8 @@ def on_reaction_graph_update(
         )
     )
     figure.update_layout(
-        title=f"Flame Temperature vs {controlled_reactant.name} Concentration",
-        xaxis_title=f"{controlled_reactant.name} Concentration (mol fraction)",
+        title=f"Flame Temperature vs {compounds[controlled].name} Concentration",
+        xaxis_title=f"{compounds[controlled].name} Concentration (mol fraction)",
         yaxis_title=y_label,
     )
     return figure

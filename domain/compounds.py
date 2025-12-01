@@ -9,7 +9,7 @@ def load_compound_data(compound_id: str) -> CompoundData:
     return loader.load(compound_id)  # eg "Carbon_Dioxide"
 
 
-compounds: dict = {}
+compounds: dict[str, Compound] = {}
 
 compounds["Carbon_Dioxide"] = Compound(
     name="Carbon Dioxide",

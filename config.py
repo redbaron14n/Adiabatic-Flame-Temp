@@ -6,31 +6,14 @@
 # Configuration File
 # ###################
 
-# from class_files.compound import Compound
 
-# Compound_list = []
-# CarbonDioxide = Compound("Carbon Dioxide", "CO2", "Carbon_Dioxide")
-# Compound_list.append(CarbonDioxide)
-# Methane = Compound("Methane", "CH4", "Methane")
-# Compound_list.append(Methane)
-# Oxygen = Compound("Oxygen", "O2", "Oxygen")
-# Compound_list.append(Oxygen)
-# Water = Compound("Water", "H2O", "Water")
-# Compound_list.append(Water)
+def products_from_reactants(reactants: set[str], dissociation: bool = False) -> set[str]:  # Placeholder function for potential reaction product generation
 
-from domain.compound import Compound
-from domain.compounds import compounds
-
-
-def products_from_reactants(
-    reactants: set[Compound], dissociation: bool = False
-) -> set[Compound]:  # Placeholder function for potential reaction product generation
-
-    if (reactants == {compounds["Methane"], compounds["Oxygen"]}) and not dissociation:
-        products = {compounds["Carbon_Dioxide"], compounds["Water"]}
+    if (reactants == {"Methane", "Oxygen"}) and not dissociation:
+        products = {"Carbon_Dioxide", "Water"}
     else:
         raise NotImplementedError(
             f"Reaction product generation not implemented for given reactants.\n"
-            f"{[r.name for r in reactants]}"
+            f"{reactants}"
         )
     return products
