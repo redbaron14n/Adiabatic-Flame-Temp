@@ -10,37 +10,35 @@ DEFAULT_TEMP: float = 298.15
 app = Dash(suppress_callback_exceptions=True)
 
 
-@app.callback(
-    Output("main-graph", "figure"),
-    Input("update-graph", "n_clicks"),
-    # Input("reaction-update-graph", "n_clicks"),
-    State("mode-dropdown", "value"),
-    State("compound-selection", "value"),
-    State("compound-variable", "value"),
-    State("reactant-selection", "value"),
-    State("reaction-variable", "value"),
-    State({"type": "ratio-input", "compound": ALL}, "value"),
-)
-def on_graph_update(
-    n_clicks,
-    mode: str,
-    compound_id: str,
-    compound_var: str,
-    r_ids: list[str],
-    controlled_r: str,
-    ratios: list[float],
-) -> go.Figure:
-    if mode == "compound":
-        return on_compound_graph_update(compound_id, compound_var)
-    elif mode == "reaction":
-        return on_reaction_graph_update(r_ids, controlled_r, ratios)
-    else:
-        return go.Figure()
-
-
 def create_layout() -> html.Div:
 
-    return html.Div(className="app-div", children=control_panel())
+    return html.Div(
+        className="app-div",
+        style = {"display": "flex", "flexDirection": "row"},
+        children=[
+            control_panel(),
+            html.Div(
+                id = "graph-panel-container",
+                style = {"width": "75%"},
+                children = [
+                    graph_panel("compound-graph"),
+                    graph_panel("reaction-graph"),
+                ]
+            ),
+        ]
+    )
+
+
+@app.callback(
+        Output("compound-graph", "style"),
+        Output("reaction-graph", "style"),
+        Input("mode-dropdown", "value"),
+)
+def toggle_graph_visibility(mode: str) -> tuple[dict[str, str], dict[str, str]]:
+    if mode == "compound":
+        return {"display": "block"}, {"display": "none"}
+    else:
+        return {"display": "none"}, {"display": "block"}
 
 
 @app.callback(
@@ -113,6 +111,8 @@ def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figur
             y_label = "Sensible Heat [kJ/mol]"
         case "logKf":
             y_label = "log Kf"
+        case _:
+            y_label = ""
     figure = go.Figure()
     figure.add_trace(
         go.Scatter(x=x_vals, y=y_vals, mode="lines+markers", name=compound.name)
@@ -164,8 +164,7 @@ def compound_controls() -> html.Div:
                 value="Hf",
             ),
             html.Hr(),
-            html.Button(id="compound-update-graph", children=["Update Graph"]),
-            graph_panel("compound-graph"),
+            html.Button(id="compound-update-graph", children=["Update Graph"])
         ],
     )
 
@@ -266,8 +265,7 @@ def reaction_controls() -> html.Div:
             html.Label("Ratios of Other Reactants"),
             html.Div(id="reactant-ratio-boxes"),
             html.Hr(),
-            html.Button(id="reaction-update-graph", children=["Update Graph"]),
-            graph_panel("reaction-graph"),
+            html.Button(id="reaction-update-graph", children=["Update Graph"])
         ],
     )
 
