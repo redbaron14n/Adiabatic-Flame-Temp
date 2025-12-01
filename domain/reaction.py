@@ -14,7 +14,6 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import brentq
 
-
 class Reaction:
 
     def __init__(
@@ -31,12 +30,14 @@ class Reaction:
         @param dissociation : bool - Flag indicating whether to consider dissociation in the reaction (default is False).
 
         @attrib reactants : set[str] - Set of Compound objects representing the reactants of the reaction.
+        @attrib inert_reactants : set[str | None] - Set of Compound objects representing inert reactants, if any
         @attrib products : set[str] - Set of Compound objects representing the products of the reaction.
         @attrib stoichiometry : tuple[dict[str, int], dict[str, int]] - Tuple containing two dictionaries representing the stoichiometric coefficients of reactants and products.
         @attrib delta_Hf : float - Total formation enthalpy change (kJ) for the reaction.
         """
 
         self._set_reactants(reactants)
+        self._set_inert_reactants(dissociation)
         self._set_products(dissociation)
         self._set_stoichiometry()
         self._set_temperatures(temperatures)
@@ -48,18 +49,26 @@ class Reaction:
         self.reactants = reactants
 
 
+    def _set_inert_reactants(self, dissociation: bool):
+
+        self.inert_reactants = products_from_reactants(self.reactants, dissociation)[1]
+
+
     def _set_products(self, dissociation: bool):
 
-        self.products = products_from_reactants(self.reactants, dissociation)
+        self.products = products_from_reactants(self.reactants, dissociation)[0]
 
 
     def _set_stoichiometry(self):
 
-        reactant_strs = {compounds[r].formula for r in self.reactants}
+        reactive_species = self.reactants - self.inert_reactants
+        reactant_strs = {compounds[r].formula for r in reactive_species}
         product_strs = {compounds[p].formula for p in self.products}
         balanced_reactants, balanced_products = balance_stoichiometry(
             reactant_strs, product_strs
         )
+        for inert in self.inert_reactants:
+            balanced_reactants[compounds[inert].formula] = 0
         self.stoichiometry = (balanced_reactants, balanced_products)
 
 
@@ -83,18 +92,27 @@ class Reaction:
 
     def _find_extent_of_reaction(self, concentrations: dict[str, float]) -> float:
 
-        weighted_conc = {c: concentrations[c] / self.stoichiometry[0][compounds[c].formula] for c in self.reactants}
+        reactive_species = self.reactants - self.inert_reactants
+        weighted_conc = {c: concentrations[c] / self.stoichiometry[0][compounds[c].formula] for c in reactive_species}
         extent = min(weighted_conc.values())
         return extent
 
 
-    def _compute_final_species_amounts(self, concentrations: dict[str, float],extent: float,) -> dict[str, float]:
+    def _compute_final_species_amounts(self, concentrations: dict[str, float], extent: float,) -> dict[str, float]:
 
         final_amounts = {}
+        # for reactant in self.reactants:
+        #     initial_amount = concentrations[reactant]
+        #     consumed_amount = extent * self.stoichiometry[0][compounds[reactant].formula]
+        #     final_amounts[reactant] = initial_amount - consumed_amount
         for reactant in self.reactants:
             initial_amount = concentrations[reactant]
-            consumed_amount = extent * self.stoichiometry[0][compounds[reactant].formula]
-            final_amounts[reactant] = initial_amount - consumed_amount
+            if reactant in self.inert_reactants:
+                final_amounts[reactant] = initial_amount
+            else:
+                coef = self.stoichiometry[0][compounds[reactant].formula]
+                consumed_amount = extent * coef
+                final_amounts[reactant] = initial_amount - consumed_amount
         for product in self.products:
             formed_amount = extent * self.stoichiometry[1][compounds[product].formula]
             final_amounts[product] = formed_amount

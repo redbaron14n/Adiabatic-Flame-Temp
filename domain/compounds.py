@@ -45,3 +45,17 @@ compounds["Hydrogen"] = Compound(
     id = "Hydrogen",
     data = load_compound_data("Hydrogen"),
 )
+
+compounds["Nitrogen"] = Compound(
+    name = "Nitrogen",
+    formula = "N2",
+    id = "Nitrogen",
+    data = load_compound_data("Nitrogen"),
+)
+
+compounds["Argon"] = Compound(
+    name = "Argon",
+    formula = "Ar",
+    id = "Argon",
+    data = load_compound_data("Argon")
+)
