@@ -69,6 +69,11 @@ class Compound:
                 raise ValueError(f"Data label '{label}' not recognized.")
 
     def _make_logKf_function(self):
+
+        """
+        Separate function maker method as logKf tables include strings ("inf").
+        """
+
         finite_logKf_list: NDArray = self._get_finite_list(self._data.logKf_list)
         return make_interp_spline(
             self._data.temperatures,
@@ -77,6 +82,11 @@ class Compound:
         )
 
     def _get_finite_list(self, list: NDArray) -> NDArray:
+
+        """
+        Turns "inf" strings into 1e6 * largest finite value
+        """
+
         finite_list = np.copy(list)
         finite_mask = np.isfinite(list)
         max_finite = np.max(list[finite_mask])

@@ -79,17 +79,11 @@ class Reaction:
         self.temperatures = temperatures
 
 
-    def _validate_reactants(self, compounds: set[str]):
+    """
+    Using initial concentrations of reactants, determines and returns proportion of reactants used up
 
-        reactant_set = set(self.reactants)
-        if compounds != reactant_set:
-            missing = reactant_set - compounds
-            extra = compounds - reactant_set
-            raise ValueError(
-                f"Provided compounds do not match reactants. Missing: {missing}, Extra: {extra}"
-            )
-
-
+    FLAG
+    """
     def _find_extent_of_reaction(self, concentrations: dict[str, float]) -> float:
 
         reactive_species = self.reactants - self.inert_reactants
@@ -114,8 +108,7 @@ class Reaction:
                 consumed_amount = extent * coef
                 final_amounts[reactant] = initial_amount - consumed_amount
         for product in self.products:
-            formed_amount = extent * self.stoichiometry[1][compounds[product].formula]
-            final_amounts[product] = formed_amount
+            final_amounts[product] = extent * self.stoichiometry[1][compounds[product].formula]
         return final_amounts
 
 
@@ -145,7 +138,9 @@ class Reaction:
             total_SH += final_amounts[product] * compounds[product].SH(temperature)
         return total_SH
 
-
+    """
+    Helper function for calc_flame_temperature
+    """
     def _energy_balance(self, temperature: float, final_amounts: dict[str, float]) -> float:
 
         residual = float(self._calc_SH_products(final_amounts, temperature)
@@ -154,7 +149,9 @@ class Reaction:
         )
         return residual
 
-
+    """
+    Finds minimum and maximum shared temperatures from reactant data. Prevents extrapolation
+    """
     def _set_temperature_bounds(self):
 
         min_temp = 0.0
@@ -180,7 +177,7 @@ class Reaction:
         extent = self._find_extent_of_reaction(concentrations)
         final_amounts = self._compute_final_species_amounts(concentrations, extent)
         if (self._energy_balance(self.min_temp, final_amounts) * self._energy_balance(self.max_temp, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
-            flame_temp = np.nan
+            flame_temp = np.nan # FLAG
         else:
             result = brentq(self._energy_balance, self.min_temp, self.max_temp, args=(final_amounts))
             flame_temp = result[0] if isinstance(result, tuple) else result
@@ -192,7 +189,9 @@ class Reaction:
         total = sum(d.values())
         return {k: v/total for k, v in d.items()}
     
-
+    """
+    Given a controlled reactant and its current concentration, scales the remaining reactants to appropriate concentrations with fixed relative ratios
+    """
     def _scale_dependents(self, variable: str, x: float, ratios: dict[str, float]) -> dict[str, float]:
 
         """

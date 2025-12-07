@@ -224,9 +224,9 @@ def on_reaction_graph_update(
     reactants = set(r for r in r_ids)
     all_reactants = reactants.copy()
     reactants.remove(controlled)
-    concentrations = {controlled: 1.0}  # Change to dict[str, float]
+    concentrations = {controlled: 1.0}
     for i, r in enumerate(reactants):
-        concentrations[r] = ratios[i]  # Change to dict[str, float]
+        concentrations[r] = ratios[i]
     temps = {}
     for r in all_reactants:
         temps[r] = DEFAULT_TEMP
