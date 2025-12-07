@@ -81,8 +81,6 @@ class Reaction:
 
     """
     Using initial concentrations of reactants, determines and returns proportion of reactants used up
-
-    FLAG
     """
     def _find_extent_of_reaction(self, concentrations: dict[str, float]) -> float:
 
@@ -92,13 +90,12 @@ class Reaction:
         return extent
 
 
+    """
+    Using intitial concentrations and extent of reaction, calculates final amounts of every species; reactants and products
+    """
     def _compute_final_species_amounts(self, concentrations: dict[str, float], extent: float,) -> dict[str, float]:
 
         final_amounts = {}
-        # for reactant in self.reactants:
-        #     initial_amount = concentrations[reactant]
-        #     consumed_amount = extent * self.stoichiometry[0][compounds[reactant].formula]
-        #     final_amounts[reactant] = initial_amount - consumed_amount
         for reactant in self.reactants:
             initial_amount = concentrations[reactant]
             if reactant in self.inert_reactants:
@@ -122,32 +119,45 @@ class Reaction:
         return delta_Hf
 
 
-    def _calc_SH_reactants(self, final_amounts: dict[str, float]) -> float:
+    """
+    Calculates and returns sensible heat of reactants at their introduction temperatures
+    """
+    def _calc_SH_reactants(self, initial_amounts: dict[str, float]) -> float:
 
         total_SH = 0.0
         for reactant in self.reactants:
             temp = self.temperatures[reactant]
-            total_SH += final_amounts[reactant] * compounds[reactant].SH(temp)
+            total_SH += initial_amounts[reactant] * compounds[reactant].SH(temp)
         return total_SH
 
 
+    """
+    Calculates sensible heat of products and leftover (unreacted) reactants at a given temperature.
+    """
     def _calc_SH_products(self, final_amounts: dict[str, float], temperature: float) -> float:
 
         total_SH = 0.0
         for product in self.products:
             total_SH += final_amounts[product] * compounds[product].SH(temperature)
+        for reactant in self.reactants:
+            total_SH += final_amounts[reactant] * compounds[reactant].SH(temperature) # Adds sensible heats of any unreacted reactants, treating them as faux-products.
         return total_SH
 
-    """
-    Helper function for calc_flame_temperature
-    """
-    def _energy_balance(self, temperature: float, final_amounts: dict[str, float]) -> float:
 
+    """
+    Helper function for calc_flame_temp
+    """
+    def _energy_balance(self, temperature: float, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
+
+        # residual = float(self._calc_SH_products(final_amounts, temperature)
+        #     - self._calc_SH_reactants(final_amounts)
+        #     + self._calc_Hf(final_amounts)
+        # )
         residual = float(self._calc_SH_products(final_amounts, temperature)
-            - self._calc_SH_reactants(final_amounts)
-            + self._calc_Hf(final_amounts)
-        )
+                         - self._calc_SH_reactants(initial_amounts)
+                         + self._calc_Hf(final_amounts))
         return residual
+
 
     """
     Finds minimum and maximum shared temperatures from reactant data. Prevents extrapolation
@@ -171,24 +181,31 @@ class Reaction:
             raise ValueError(f"Concentrations do not sum to 1.0. Sum: {total:.5f}")
 
 
+    """
+    Uses initial concentrations of reactants to find at what temperature the sensible heat of the products is equal to the sensible heat of reactants and heat of formation of reaction
+    """
     def calc_flame_temp(self, concentrations: dict[str, float]) -> float:
 
         self._validate_concentrations(concentrations)
         extent = self._find_extent_of_reaction(concentrations)
         final_amounts = self._compute_final_species_amounts(concentrations, extent)
-        if (self._energy_balance(self.min_temp, final_amounts) * self._energy_balance(self.max_temp, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
+        if (self._energy_balance(self.min_temp, concentrations, final_amounts) * self._energy_balance(self.max_temp, concentrations, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
             flame_temp = np.nan # FLAG
         else:
-            result = brentq(self._energy_balance, self.min_temp, self.max_temp, args=(final_amounts))
+            result = brentq(self._energy_balance, self.min_temp, self.max_temp, args=(concentrations, final_amounts))
             flame_temp = result[0] if isinstance(result, tuple) else result
         return flame_temp
 
 
+    """
+    Turns ratios into proportions
+    """
     def _normalize(self, d: dict[str, float]) -> dict[str, float]:
 
         total = sum(d.values())
         return {k: v/total for k, v in d.items()}
     
+
     """
     Given a controlled reactant and its current concentration, scales the remaining reactants to appropriate concentrations with fixed relative ratios
     """
@@ -206,6 +223,9 @@ class Reaction:
         return {k: leftover * prop for k, prop in dependents.items()}
     
 
+    """
+    Generates initial concentrations of all reactants for every concentration of controlled reactant
+    """
     def _generate_concentrations(self, variable: str, base_concs: dict[str, float], resolution: int = 100) -> list[dict[str, float]]:
 
         base_ratios = self._normalize(base_concs)
@@ -221,6 +241,9 @@ class Reaction:
         return conc_list
 
 
+    """
+    Calculates the flame temperature data points as a function of the variable compound's concentration. Returns as an array
+    """
     def calc_flame_table(self, variable_compound: str, base_concentrations: dict[str, float | int], resolution: int = 100) -> NDArray[np.float64]:
 
         concentration_dicts = self._generate_concentrations(
