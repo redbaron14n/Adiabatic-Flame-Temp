@@ -1,3 +1,11 @@
+# ###################
+# Ian Janes
+# Professor Don Lipkin
+# MSEN 210 200
+# Adiabatic Flame Temperature
+# Compound Class File
+# ###################
+
 import numpy as np
 from numpy.typing import NDArray
 from domain.compound_data import CompoundData

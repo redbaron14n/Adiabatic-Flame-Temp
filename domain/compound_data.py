@@ -1,3 +1,11 @@
+# ###################
+# Ian Janes
+# Professor Don Lipkin
+# MSEN 210 200
+# Adiabatic Flame Temperature
+# CompoundData Dataclass File
+# ###################
+
 import numpy
 from dataclasses import dataclass
 

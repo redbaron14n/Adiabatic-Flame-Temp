@@ -1,3 +1,11 @@
+# ###################
+# Ian Janes
+# Professor Don Lipkin
+# MSEN 210 200
+# Adiabatic Flame Temperature
+# Compound Data Loader File
+# ###################
+
 import numpy as np
 import pandas as pd
 

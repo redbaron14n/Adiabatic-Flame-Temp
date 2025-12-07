@@ -1,3 +1,11 @@
+# ###################
+# Ian Janes
+# Professor Don Lipkin
+# MSEN 210 200
+# Adiabatic Flame Temperature
+# Compound Dictionary File
+# ###################
+
 from services.comp_loader import CompoundLoader
 from domain.compound_data import CompoundData
 from domain.compound import Compound

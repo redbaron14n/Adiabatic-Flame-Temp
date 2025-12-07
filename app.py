@@ -1,3 +1,11 @@
+# ###################
+# Ian Janes
+# Professor Don Lipkin
+# MSEN 210 200
+# Adiabatic Flame Temperature
+# Main App File
+# ###################
+
 from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
 from domain.compound import Compound
 from domain.reaction import Reaction
