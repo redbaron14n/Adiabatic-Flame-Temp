@@ -6,7 +6,7 @@
 # Main App File
 # ###################
 
-from dash import ALL, Dash, dcc, html, Input, MATCH, Output, State
+from dash import ALL, Dash, dcc, html, Input, Output, State
 from domain.compound import Compound
 from domain.reaction import Reaction
 import plotly.graph_objs as go
@@ -15,7 +15,7 @@ from numpy.typing import NDArray
 
 DEFAULT_TEMP: float = 298.15
 
-app = Dash(suppress_callback_exceptions=True)
+app = Dash(suppress_callback_exceptions=True) # Necessary for dynamic layout components
 
 
 """
@@ -127,12 +127,18 @@ def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figur
     y_vals: NDArray = compound.get_data(compound_var)
     x_vals: NDArray = compound.get_temperatures()
     match compound_var:
-        case "cp":
-            y_label = "Constant Pressure Heat Capacity (Cp) [J/(mol·K)]"
+        case "Cf":
+            y_label = "Specific Heat Capacity (Cf) [J/(mol·K)]"
+        case "S":
+            y_label = "Standard Entropy (S°) [J/(mol·K)]"
+        case "DS":
+            y_label = "Total Entropy Change (ΔS) [J/(mol·K)]"
         case "Hf":
             y_label = "Standard Heat of Formation [kJ/mol]"
         case "SH":
             y_label = "Sensible Heat [kJ/mol]"
+        case "Gf":
+            y_label = "Standard Gibbs Free Energy of Formation [kJ/mol]"
         case "logKf":
             y_label = "log Kf"
         case _:
@@ -178,15 +184,12 @@ def compound_controls() -> html.Div:
             dcc.Dropdown(
                 id="compound-variable",
                 options=[
-                    # {"label": "Constant Pressure Heat Capacity (Cp)", "value": "cp"},
-                    # {"label": "Standard Entropy (S°)", "value": "s"},
-                    # {"label": "Total Entropy Change (ΔS)", "value": "ds"},
+                    {"label": "Specific Heat Capacity (Cf)", "value": "Cf"},
+                    {"label": "Standard Entropy (S°)", "value": "S"},
+                    {"label": "Total Entropy Change (ΔS)", "value": "DS"},
                     {"label": "Sensible Heat (SH)", "value": "SH"},
                     {"label": "Standard Enthalpy of Formation (ΔHf°)", "value": "Hf"},
-                    # {
-                    #     "label": "Standard Gibbs Free Energy of Formation (ΔGf°)",
-                    #     "value": "gf",
-                    # },
+                    {"label": "Standard Gibbs Free Energy of Formation (ΔGf°)", "value": "Gf"},
                     {"label": "log Kf", "value": "logKf"},
                 ],
                 placeholder="Select a variable...",
