@@ -32,7 +32,7 @@ To select the venv as the workspace venv, use ctl-shift-p 'python: select interp
 To run the app
 
 ```
-uv run python -m .\app.py
+uv run python .\app.py
 ```
 
 Go to IP address printed in terminal.

@@ -109,13 +109,13 @@ class Reaction:
         return final_amounts
 
 
-    def _calc_Hf(self, final_amounts: dict[str, float]) -> float:
+    def _calc_Hf(self, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
 
         delta_Hf = 0.0
         for product in self.products:
             delta_Hf += final_amounts[product] * compounds[product].stdHf
         for reactant in self.reactants:
-            delta_Hf -= final_amounts[reactant] * compounds[reactant].stdHf
+            delta_Hf -= initial_amounts[reactant] * compounds[reactant].stdHf
         return delta_Hf
 
 
@@ -149,13 +149,9 @@ class Reaction:
     """
     def _energy_balance(self, temperature: float, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
 
-        # residual = float(self._calc_SH_products(final_amounts, temperature)
-        #     - self._calc_SH_reactants(final_amounts)
-        #     + self._calc_Hf(final_amounts)
-        # )
         residual = float(self._calc_SH_products(final_amounts, temperature)
                          - self._calc_SH_reactants(initial_amounts)
-                         + self._calc_Hf(final_amounts))
+                         + self._calc_Hf(initial_amounts, final_amounts))
         return residual
 
 
@@ -189,8 +185,8 @@ class Reaction:
         self._validate_concentrations(concentrations)
         extent = self._find_extent_of_reaction(concentrations)
         final_amounts = self._compute_final_species_amounts(concentrations, extent)
-        if (self._energy_balance(self.min_temp, concentrations, final_amounts) * self._energy_balance(self.max_temp, concentrations, final_amounts) > 0):  # No root in bounds (flame temp higher than max)
-            flame_temp = np.nan # FLAG
+        if (self._energy_balance(self.min_temp, concentrations, final_amounts) * self._energy_balance(self.max_temp, concentrations, final_amounts) > 0):  # No root (flame temp) in bounds
+            flame_temp = np.nan
         else:
             result = brentq(self._energy_balance, self.min_temp, self.max_temp, args=(concentrations, final_amounts))
             flame_temp = result[0] if isinstance(result, tuple) else result
