@@ -18,6 +18,9 @@ DEFAULT_TEMP: float = 298.15
 app = Dash(suppress_callback_exceptions=True)
 
 
+"""
+Creates the overall layout of the app.
+"""
 def create_layout() -> html.Div:
 
     return html.Div(
@@ -37,6 +40,9 @@ def create_layout() -> html.Div:
     )
 
 
+"""
+Switches which graph is visible based on the selected mode.
+"""
 @app.callback(
         Output("compound-graph", "style"),
         Output("reaction-graph", "style"),
@@ -49,6 +55,9 @@ def toggle_graph_visibility(mode: str) -> tuple[dict[str, str], dict[str, str]]:
         return {"display": "none"}, {"display": "block"}
 
 
+"""
+Determines which mode-specific controls to display based on the selected mode.
+"""
 @app.callback(
     Output("mode-controls-div", "children"),
     Input("mode-dropdown", "value"),
@@ -62,6 +71,9 @@ def update_mode_controls(mode: str):
         return html.Div("Invalid mode")
 
 
+"""
+Creates the control panel containing mode selection and mode-specific controls.
+"""
 def control_panel() -> html.Div:
 
     return html.Div(
@@ -71,8 +83,6 @@ def control_panel() -> html.Div:
             html.Hr(),
             mode_dropdown(),
             html.Div(id="mode-controls-div"),
-            # html.Hr(),
-            # html.Button(id="update-graph-button", children=["Update Graph"]),
         ],
         style={
             "width": "25%",
@@ -83,6 +93,9 @@ def control_panel() -> html.Div:
     )
 
 
+"""
+Creates the mode selection dropdown.
+"""
 def mode_dropdown() -> html.Div:
     return html.Div(
         children=[
@@ -99,6 +112,9 @@ def mode_dropdown() -> html.Div:
     )
 
 
+"""
+Pulls data from the compound controls and generates the compound graph.
+"""
 @app.callback(
     Output("compound-graph", "figure"),
     Input("compound-update-graph", "n_clicks"),
@@ -133,6 +149,9 @@ def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figur
     return figure
 
 
+"""
+Creates the div where the graph will be displayed.
+"""
 def graph_panel(graph_id: str) -> html.Div:
     return html.Div(
         className="graph-panel",
@@ -141,6 +160,9 @@ def graph_panel(graph_id: str) -> html.Div:
     )
 
 
+"""
+Creates the compound controls panel.
+"""
 def compound_controls() -> html.Div:
 
     return html.Div(
@@ -176,6 +198,9 @@ def compound_controls() -> html.Div:
     )
 
 
+"""
+Populates the controlled reactant dropdown based on selected reactants.
+"""
 @app.callback(
     Output("reaction-variable", "options"),
     Input("reactant-selection", "value"),
@@ -184,6 +209,9 @@ def on_reactant_selection(r_ids: list[str]) -> list[dict[str, str]]:
     return [{"label": compounds[r].name, "value": compounds[r].id} for r in r_ids]
 
 
+"""
+Dynamically generates ratio input boxes for each selected reactant except the controlled one.
+"""
 @app.callback(
     Output("reactant-ratio-boxes", "children"),
     Input("reactant-selection", "value"),
@@ -214,31 +242,60 @@ def update_reactant_ratio_boxes(
     return boxes
 
 
+"""
+Dynamically generates temperature input boxes for each selected reactant.
+"""
+@app.callback(
+    Output("reactant-temperature-boxes", "children"),
+    Input("reactant-selection", "value"),
+)
+def update_reactant_temperature_boxes(all_reactants: list[str]) -> list[html.Div]:
+
+    boxes = []
+    for r in all_reactants:
+        boxes.append(
+            html.Div(
+                [
+                    html.Label(f"{compounds[r].name} Temperature (K): "),
+                    dcc.Input(
+                        id={"type": "temp-input", "compound": r},
+                        type="number",
+                        min=0,
+                        value=DEFAULT_TEMP,
+                    ),
+                ],
+                style={"margin-bottom": "8px"},
+            )
+        )
+    return boxes
+
+
+"""
+On update-reaction-graph button pressed, pulls data from the reaction controls and generates the reaction graph.
+"""
 @app.callback(
     Output("reaction-graph", "figure"),
     Input("reaction-update-graph", "n_clicks"),
     State("reactant-selection", "value"),
     State("reaction-variable", "value"),
     State({"type": "ratio-input", "compound": ALL}, "value"),
+    State({"type": "temp-input", "compound": ALL}, "value"),
 )
 def on_reaction_graph_update(
-    _, r_ids: list[str], controlled: str, ratios: list[float | int]
+    _, r_ids: list[str], controlled: str, ratios: list[float | int], temps: list[float | int]
 ):
     if not ratios:
         return go.Figure()
-
-    # controlled_reactant: Compound = compounds[controlled]
-    # reactants = set(compounds[r] for r in r_ids)
     reactants = set(r for r in r_ids)
     all_reactants = reactants.copy()
     reactants.remove(controlled)
     concentrations = {controlled: 1.0}
     for i, r in enumerate(reactants):
         concentrations[r] = ratios[i]
-    temps = {}
-    for r in all_reactants:
-        temps[r] = DEFAULT_TEMP
-    reaction = Reaction(all_reactants, temps)
+    temperatures = {}
+    for i, r in enumerate(all_reactants):
+        temperatures[r] = temps[i]
+    reaction = Reaction(all_reactants, temperatures)
     x, t = reaction.calc_flame_table(
         controlled, concentrations
     )
@@ -258,6 +315,9 @@ def on_reaction_graph_update(
     return figure
 
 
+"""
+Creates the reaction controls panel.
+"""
 def reaction_controls() -> html.Div:
 
     return html.Div(
@@ -274,6 +334,7 @@ def reaction_controls() -> html.Div:
             dcc.Dropdown(id="reaction-variable", value="Methane"),
             html.Label("Ratios of Other Reactants"),
             html.Div(id="reactant-ratio-boxes"),
+            html.Div(id="reactant-temperature-boxes"),
             html.Hr(),
             html.Button(id="reaction-update-graph", children=["Update Graph"])
         ],
