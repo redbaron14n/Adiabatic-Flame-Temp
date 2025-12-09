@@ -281,24 +281,37 @@ On update-reaction-graph button pressed, pulls data from the reaction controls a
     Input("reaction-update-graph", "n_clicks"),
     State("reactant-selection", "value"),
     State("reaction-variable", "value"),
+    State({"type": "ratio-input", "compound": ALL}, "id"),
     State({"type": "ratio-input", "compound": ALL}, "value"),
+    State({"type": "temp-input", "compound": ALL}, "id"),
     State({"type": "temp-input", "compound": ALL}, "value"),
 )
 def on_reaction_graph_update(
-    _, r_ids: list[str], controlled: str, ratios: list[float | int], temps: list[float | int]
+    _, r_ids: list[str], controlled: str, ratio_ids: list[dict[str, str]], ratios: list[float | int], temp_ids: list[dict[str, str]], temps: list[float | int]
 ):
     if not ratios:
         return go.Figure()
-    reactants = set(r for r in r_ids)
-    all_reactants = reactants.copy()
-    reactants.remove(controlled)
-    concentrations = {controlled: 1.0}
-    for i, r in enumerate(reactants):
-        concentrations[r] = ratios[i]
-    temperatures = {}
-    for i, r in enumerate(all_reactants):
-        temperatures[r] = temps[i]
-    reaction = Reaction(all_reactants, temperatures)
+
+    ratio_map = { # Necessary to map input ids to values as they get jumbled otherwise
+        rid["compound"]: ratio
+        for rid, ratio in zip(ratio_ids, ratios)
+        if rid["compound"] in r_ids
+    }
+
+    temp_map = {
+        tid["compound"]: temp
+        for tid, temp in zip(temp_ids, temps)
+        if tid["compound"] in r_ids
+    }
+
+    concentrations: dict[str, float] = {controlled: 1.0}
+    for r in r_ids:
+        if r != controlled:
+            concentrations[r] = ratio_map[r]
+
+    temperatures: dict[str, float] = {r: temp_map[r] for r in r_ids}
+
+    reaction = Reaction(set(r_ids), temperatures)
     x, t = reaction.calc_flame_table(
         controlled, concentrations
     )
