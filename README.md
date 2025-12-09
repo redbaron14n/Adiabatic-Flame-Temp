@@ -47,6 +47,8 @@ Under dropdown labeled "Selected Controlled Reactant", select which reactant's c
 
 If there are only two reactants, you may ignore "Ratios of Other Reactants", otherwise, enter the integer ratio of the listed reactants (i.e., for air, Nitrogen: 78, Oxygen: 21, Argon: 1)
 
+Enter the temperatures at which reactants enter the system in final boxes.
+
 Press "Update Graph" button once you have made desired selections.
 
 ### Compound Data
@@ -70,7 +72,7 @@ Compound,T,Cf,S,(G-H)/T,SH,Hf,G,logKf
 To merge the file into the master .csv file, run the csv_editor.py script
 
 '''
-uv run python -m .\csv_editor.py
+uv run python .\csv_editor.py
 '''
 
 Follow the prompts to merge or extract data with/from the thermochemical_data.csv file. Final prompt asks to delete the given file to merge, just to stay tidy.
@@ -117,9 +119,9 @@ where "AAA" and "BBB" (or more or less) are the active reactants, and "CCC" and 
 
 Reactions at high temperatures have a myriad of additional products stemming from compounds breaking apart, which serve to significantly lower flame temperature.
 
-## Reactants' Initial Temperatures
+## Compound Reference Temperature
 
-The initial temperatures of reactants plays a role in the sensible heat of reactants, which will influence the final flame temperature. For now, reactants are considered to enter the system at 298.15K.
+This would enable a user to provide data for a compound with reference temperature other than 298.15K
 
 ## Exporting Data / Saving Graphs
 
