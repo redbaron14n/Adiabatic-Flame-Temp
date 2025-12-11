@@ -80,6 +80,21 @@ class Reaction:
 
 
     """
+    Finds minimum and maximum shared temperatures from reactant data. Prevents extrapolation
+    """
+    def _set_temperature_bounds(self):
+
+        min_temp = 0.0
+        max_temp = np.inf
+        for component in self.reactants.union(self.products):
+            temperatures = compounds[component].get_temperatures()
+            min_temp = max(min_temp, np.min(temperatures))
+            max_temp = min(max_temp, np.max(temperatures))
+        self.min_temp = min_temp
+        self.max_temp = max_temp
+
+
+    """
     Using initial concentrations of reactants, determines and returns proportion of reactants used up
     """
     def _find_extent_of_reaction(self, concentrations: dict[str, float]) -> float:
@@ -107,41 +122,6 @@ class Reaction:
         for product in self.products:
             final_amounts[product] = extent * self.stoichiometry[1][compounds[product].formula]
         return final_amounts
-
-
-    # def _calc_Hf(self, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
-
-    #     delta_Hf = 0.0
-    #     for product in self.products:
-    #         delta_Hf += final_amounts[product] * compounds[product].stdHf
-    #     for reactant in self.reactants:
-    #         delta_Hf -= initial_amounts[reactant] * compounds[reactant].stdHf
-    #     return delta_Hf
-
-
-    # """
-    # Calculates and returns sensible heat of reactants at their introduction temperatures
-    # """
-    # def _calc_SH_reactants(self, initial_amounts: dict[str, float]) -> float:
-
-    #     total_SH = 0.0
-    #     for reactant in self.reactants:
-    #         temp = self.temperatures[reactant]
-    #         total_SH += initial_amounts[reactant] * compounds[reactant].SH(temp)
-    #     return total_SH
-
-
-    # """
-    # Calculates sensible heat of products and leftover (unreacted) reactants at a given temperature.
-    # """
-    # def _calc_SH_products(self, final_amounts: dict[str, float], temperature: float) -> float:
-
-    #     total_SH = 0.0
-    #     for product in self.products:
-    #         total_SH += final_amounts[product] * compounds[product].SH(temperature)
-    #     for reactant in self.reactants:
-    #         total_SH += final_amounts[reactant] * compounds[reactant].SH(temperature) # Adds sensible heats of any unreacted reactants, treating them as faux-products.
-    #     return total_SH
 
 
     def _calc_Hf_initial(self, initial_amounts: dict[str, float]) -> float:
@@ -177,6 +157,9 @@ class Reaction:
         return total_SH
     
 
+    """
+    Helper function for root-finding; computes residual of energy balance at given temperature
+    """
     def _energy_balance(self, temperature: float, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
 
         SH_final = self._calc_SH_final(final_amounts, temperature)
@@ -185,41 +168,6 @@ class Reaction:
         Hf_initial = self._calc_Hf_initial(initial_amounts)
         residual = float(SH_final + Hf_final - SH_initial - Hf_initial)
         return residual
-    
-    def energy_balance(self, temperature: float, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
-
-        SH_final = self._calc_SH_final(final_amounts, temperature)
-        Hf_final = self._calc_Hf_final(final_amounts)
-        SH_initial = self._calc_SH_initial(initial_amounts)
-        Hf_initial = self._calc_Hf_initial(initial_amounts)
-        residual = float(SH_final + Hf_final - SH_initial - Hf_initial)
-        return residual
-
-
-    # """
-    # Helper function for calc_flame_temp
-    # """
-    # def _energy_balance(self, temperature: float, initial_amounts: dict[str, float], final_amounts: dict[str, float]) -> float:
-
-    #     residual = float(self._calc_SH_products(final_amounts, temperature)
-    #                      - self._calc_SH_reactants(initial_amounts)
-    #                      + self._calc_Hf(initial_amounts, final_amounts))
-    #     return residual
-
-
-    """
-    Finds minimum and maximum shared temperatures from reactant data. Prevents extrapolation
-    """
-    def _set_temperature_bounds(self):
-
-        min_temp = 0.0
-        max_temp = np.inf
-        for component in self.reactants.union(self.products):
-            temperatures = compounds[component].get_temperatures()
-            min_temp = max(min_temp, np.min(temperatures))
-            max_temp = min(max_temp, np.max(temperatures))
-        self.min_temp = min_temp
-        self.max_temp = max_temp
 
 
     def _validate_concentrations(self, conc_dict: dict[str, float]) -> None:
@@ -287,21 +235,6 @@ class Reaction:
             conc_list.append(conc_dict)
             x_val += delta_x
         return conc_list
-    
-
-    def debug_concentrations(self, variable: str, base_concs: dict[str, float | int], resolution: int = 100) -> None:
-
-        reactant_conc_dicts = self._generate_concentrations(variable, base_concs, resolution)
-        reactant_conc = np.array([list(d.values()) for d in reactant_conc_dicts])
-        product_conc_dicts = []
-        for conc_dict in reactant_conc_dicts:
-            extent = self._find_extent_of_reaction(conc_dict)
-            final_amounts = self._compute_final_species_amounts(conc_dict, extent)
-            product_conc_dicts.append(final_amounts)
-        product_conc = np.array([list(d.values()) for d in product_conc_dicts])
-        conc_table = np.hstack((reactant_conc, product_conc))
-        print("Concentration Table (Reactants | Products):")
-        print(conc_table)
 
 
     """
