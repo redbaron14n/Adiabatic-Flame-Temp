@@ -1,7 +1,6 @@
 # ###################
 # Ian Janes
 # Professor Don Lipkin
-# MSEN 210 200
 # Adiabatic Flame Temperature
 # Compound Class File
 # ###################
@@ -16,10 +15,11 @@ STANDARD_REF_TEMP = 298.15
 
 class Compound:
 
-    def __init__(self, name: str, formula: str, id: str, data: CompoundData):
+    def __init__(self, name: str, formula: str, id: str, data: CompoundData, state: str = "g"):
         self.name: str = name
         self.formula: str = formula
         self.id: str = id
+        self.state: str = state
         self._data: CompoundData = data
 
         self._Cf_function = make_interp_spline(

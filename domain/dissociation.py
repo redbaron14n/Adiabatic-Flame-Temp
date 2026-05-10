@@ -8,6 +8,7 @@
 from chempy import balance_stoichiometry
 from domain.compound import Compound
 from domain.compounds import compounds
+from math import isclose
 
 class Dissociation:
 
@@ -16,6 +17,7 @@ class Dissociation:
         self._set_molecule(molecule)
         self._set_radicals(radicals)
         self._set_stoichioemetry()
+        self._set_nonsolids()
 
 
     def _set_molecule(self, molecule: str):
@@ -36,3 +38,52 @@ class Dissociation:
         stoich_dict = rad | prod
         factor = stoich_dict[molecule_str]
         self._stoichiometry: dict[str, float] = {k: v/factor for k, v in stoich_dict.items()}
+
+
+    def _set_nonsolids(self):
+
+        self._nonsolids: set[str] = set()
+        for species in self._stoichiometry.keys():
+            for compound in compounds.values():
+                if compound.formula == species and compound.state != "s":
+                    self._nonsolids.add(compound.id)
+
+
+    def _validate_guess(self, guess: list[float], species_indices: dict[str, int]):
+
+        if len(guess) != len(species_indices) + 1:
+            raise ValueError(
+                f"Guess list length does not match number of species plus 1.\n"
+                f"Guess: {guess}\n"
+                f"Species Indices: {species_indices}"
+            )
+        elif not all(species in species_indices for species in self._stoichiometry):
+            raise ValueError(
+                f"Guess list does not contain all species in the reaction.\n"
+                f"Guess: {guess}\n"
+                f"Species Indices: {species_indices}\n"
+                f"Reaction Species: {self._stoichiometry.keys()}"
+            )
+
+
+    def _calculate_pressure_exponent(self) -> float:
+
+        stoich_dict = self._stoichiometry
+        molecule_str = compounds[self.molecule].formula
+        radical_strs = {compounds[r].formula for r in self.radicals}
+        return stoich_dict[molecule_str] - sum(stoich_dict[r] for r in radical_strs)
+    
+
+    def _calculate_pressure_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
+
+        exponent = self._calculate_pressure_exponent()
+        if isclose(exponent, 0.0):
+            return 1.0
+        fraction = sum(guess[species_indices[s]] for s in self._nonsolids) / pressure_bar
+        return fraction ** exponent
+
+
+    def equilibrium_residual(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float = 1.0) -> float:
+
+        self._validate_guess(guess, species_indices)
+        pass
