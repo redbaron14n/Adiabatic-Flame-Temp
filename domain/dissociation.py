@@ -68,6 +68,10 @@ class Dissociation:
 
     def _calculate_pressure_exponent(self) -> float:
 
+        """
+        Calculates and returns the pressure exponent for the equilibrium residual calculation based on the stoichiometry of the reaction.
+        """
+
         stoich_dict = self._stoichiometry
         molecule_str = compounds[self.molecule].formula
         radical_strs = {compounds[r].formula for r in self.radicals}
@@ -76,10 +80,18 @@ class Dissociation:
 
     def _calculate_pressure_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
 
+        """
+        Calculates and returns the pressure factor for the equilibrium residual calculation based on the current guess and pressure.
+
+        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
+        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
+        @param pressure_bar (float) : The total pressure in bars.
+        """
+
         exponent = self._calculate_pressure_exponent()
         if isclose(exponent, 0.0):
             return 1.0
-        fraction = sum(guess[species_indices[s]] for s in self._nonsolids) / pressure_bar
+        fraction = pressure_bar / sum(guess[species_indices[s]] for s in self._nonsolids)
         return fraction ** exponent
 
 
