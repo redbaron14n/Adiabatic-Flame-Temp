@@ -57,7 +57,7 @@ class Dissociation:
                 f"Guess: {guess}\n"
                 f"Species Indices: {species_indices}"
             )
-        elif not all(species in species_indices for species in self._stoichiometry):
+        elif not all(species in species_indices for species in ({self.molecule} | self.radicals)):
             raise ValueError(
                 f"Guess list does not contain all species in the reaction.\n"
                 f"Guess: {guess}\n"
@@ -93,9 +93,57 @@ class Dissociation:
             return 1.0
         fraction = pressure_bar / sum(guess[species_indices[s]] for s in self._nonsolids)
         return fraction ** exponent
+    
+
+    def _calculate_concentration_product(self, guess: list[float], species_indices: dict[str, int]) -> float:
+
+        """
+        Calculates and returns the concentration product for the equilibrium residual calculation based on the current guess.
+
+        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
+        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
+        """
+
+        product = 1.0
+        for species, coeff in self._stoichiometry.items():
+            if species in self._nonsolids:
+                product *= guess[species_indices[species]] ** coeff
+        return product
+
+
+    def _validate_temperature(self, temperature: float):
+
+        if temperature < 0:
+            raise ValueError(f"Temperature must be greater than or equal to 0 K. Given: {temperature} K")
+
+
+    def get_equilibrium_constant(self, temperature: float) -> float:
+
+        """
+        Calculates and returns the equilibrium constant for the reaction at the given temperature.
+
+        @param temperature (float) : The temperature in Kelvin.
+        """
+
+        self._validate_temperature(temperature)
+        molecule_compound = compounds[self.molecule]
+        ecc = 10 ** molecule_compound.logKf(temperature)
+        return ecc
 
 
     def equilibrium_residual(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float = 1.0) -> float:
 
+        """
+        Calculates and returns the equilibrium residual for the current guess of species concentrations and temperature at the given pressure.
+
+        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
+        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
+        @param pressure_bar (float) : The total pressure in bars (default is 1.0 bar).
+        """
+
         self._validate_guess(guess, species_indices)
-        pass
+        temp = guess[-1]
+        conc_prod = self._calculate_concentration_product(guess, species_indices)
+        pressure_factor = self._calculate_pressure_factor(guess, species_indices, pressure_bar)
+        ecc = self.get_equilibrium_constant(temp)
+        return conc_prod * pressure_factor - ecc
