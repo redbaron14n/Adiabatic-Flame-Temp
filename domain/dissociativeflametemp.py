@@ -5,7 +5,8 @@
 # Dissociative Flame Temperature Calculation Class File
 # ###################
 
-from compounds import compounds
+from chempy.util.parsing import formula_to_composition
+from domain.compounds import compounds
 
 class DissociativeReaction:
 
@@ -24,6 +25,7 @@ class DissociativeReaction:
         self.temperatures = temps
         self.concentration_resolution = conc_res
         self.percent_combustion = comb
+        self._set_init_conc_dicts()
 
 
     @property
@@ -134,3 +136,61 @@ class DissociativeReaction:
         if not (0 < comb <= 1):
             raise ValueError("Percent combustion must be between 0 and 1.")
         self._combustion = comb
+
+
+    def _list_atoms(self) -> set[int]:
+
+        """
+        :return: A set of all atoms present in the fuels and oxidants of this reaction.
+        """
+
+        atoms: set[int] = set()
+        for species in self._fuels | self._oxidants:
+            formula = compounds[species].formula
+            composition: dict[int, int] = formula_to_composition(formula)
+            for element in composition.keys():
+                atoms.add(element)
+        return atoms
+
+
+    def _find_atom_contributions(self) -> dict[int, dict[str, int]]:
+
+        """
+        :return: A dictionary mapping each atom present in the fuels and oxidants of this reaction to a dictionary mapping each species containing that atom to the number of atoms contributed by that species.
+
+            For example, if the reaction is CH4 + 2 O2, the return value would be:
+            {6: {'Methane': 1}, 1: {'Methane': 4}, 8: {'Oxygen': 2}}
+        """
+
+        atom_contrib: dict[int, dict[str, int]] = dict()
+        atom_set = self._list_atoms()
+        for atom in atom_set:
+            atom_contrib[atom] = dict()
+            for species in self._fuels | self._oxidants:
+                formula = compounds[species].formula
+                composition: dict[int, int] = formula_to_composition(formula)
+                if atom in composition:
+                    atom_contrib[atom][species] = composition[atom]
+        return atom_contrib
+
+
+    def _set_init_conc_dicts(self):
+
+        """
+        Generates a list of dictionaries mapping species IDs to their initial concentrations for each fuel-to-oxidant ratio to be calculated.
+        """
+
+        conc_step = 1 / (self._conc_res + 1)
+        conc_list: list[dict[str, float]] = []
+        fuel_conc = conc_step
+        while fuel_conc < 1:
+            oxidant_conc = 1 - fuel_conc
+            conc_dict = {species: fuel_conc * ratio for species, ratio in self._fuels.items()}
+            for species, ratio in self._oxidants.items():
+                conc_dict[species] = oxidant_conc * ratio
+            conc_list.append(conc_dict)
+            fuel_conc += conc_step
+        self._init_conc_list = conc_list
+
+test = DissociativeReaction({'Methane': 1, "Carbon_Dioxide": 2}, {"Oxygen": 21, "Nitrogen": 79}, {'Methane': 300, 'Oxygen': 300, "Nitrogen": 300, "Carbon_Dioxide": 300}, conc_res=104, comb=0.8)
+print(test._find_atom_contributions())
