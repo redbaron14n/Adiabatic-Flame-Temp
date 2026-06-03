@@ -12,38 +12,58 @@ from math import isclose
 
 class Dissociation:
 
-    def __init__(self, molecule: str, radicals: set[str]):
+    def __init__(self, m_id: str, r_ids: set[str]):
 
-        self._set_molecule(molecule)
-        self._set_radicals(radicals)
+        self._set_molecule(m_id)
+        self._set_radicals(r_ids)
         self._set_stoichioemetry()
         self._set_nonsolids()
 
 
-    def _set_molecule(self, molecule: str):
+    @property
+    def molecule_id(self) -> str:
 
-        self.molecule: str = molecule
+        """
+        :return: The ID of the molecule that is dissociating in this reaction.
+        """
+
+        return self._molecule
 
 
-    def _set_radicals(self, radicals: set[str]):
+    def _set_molecule(self, id: str):
 
-        self.radicals: set[str] = radicals
+        self._molecule: str = id
+
+
+    @property
+    def radicals_ids(self) -> set[str]:
+
+        """
+        :return: A set of IDs for the radicals produced in this dissociation reaction.
+        """
+
+        return self._radicals
+
+
+    def _set_radicals(self, ids: set[str]):
+
+        self._radicals: set[str] = ids
 
 
     def _set_stoichioemetry(self):
 
-        radical_strs = {compounds[r].formula for r in self.radicals}
-        molecule_str = compounds[self.molecule].formula
-        rad, prod = balance_stoichiometry({molecule_str}, radical_strs)
+        rfrms = {compounds[r].formula for r in self._radicals}
+        mfrm = compounds[self._molecule].formula
+        rad, prod = balance_stoichiometry({mfrm}, rfrms)
         stoich_dict = rad | prod
-        factor = stoich_dict[molecule_str]
-        self._stoichiometry: dict[str, float] = {k: v/factor for k, v in stoich_dict.items()}
+        factor = stoich_dict[mfrm]
+        self._stoich: dict[str, float] = {k: v/factor for k, v in stoich_dict.items()}
 
 
     def _set_nonsolids(self):
 
         self._nonsolids: set[str] = set()
-        for species in self._stoichiometry.keys():
+        for species in self._stoich.keys():
             for compound in compounds.values():
                 if compound.formula == species and compound.state != "s":
                     self._nonsolids.add(compound.id)
@@ -57,12 +77,12 @@ class Dissociation:
                 f"Guess: {guess}\n"
                 f"Species Indices: {species_indices}"
             )
-        elif not all(species in species_indices for species in ({self.molecule} | self.radicals)):
+        elif not all(species in species_indices for species in ({self._molecule} | self._radicals)):
             raise ValueError(
                 f"Guess list does not contain all species in the reaction.\n"
                 f"Guess: {guess}\n"
                 f"Species Indices: {species_indices}\n"
-                f"Reaction Species: {self._stoichiometry.keys()}"
+                f"Reaction Species: {self._stoich.keys()}"
             )
 
 
@@ -72,10 +92,10 @@ class Dissociation:
         Calculates and returns the pressure exponent for the equilibrium residual calculation based on the stoichiometry of the reaction.
         """
 
-        stoich_dict = self._stoichiometry
-        molecule_str = compounds[self.molecule].formula
-        radical_strs = {compounds[r].formula for r in self.radicals}
-        return stoich_dict[molecule_str] - sum(stoich_dict[r] for r in radical_strs)
+        stoich_dict = self._stoich
+        mfrm = compounds[self._molecule].formula
+        rfrms = {compounds[r].formula for r in self._radicals}
+        return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
     def _calculate_pressure_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
@@ -83,9 +103,9 @@ class Dissociation:
         """
         Calculates and returns the pressure factor for the equilibrium residual calculation based on the current guess and pressure.
 
-        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
-        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
-        @param pressure_bar (float) : The total pressure in bars.
+        :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
+        :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
+        :param float pressure_bar: The total pressure in bars.
         """
 
         exponent = self._calculate_pressure_exponent()
@@ -100,12 +120,12 @@ class Dissociation:
         """
         Calculates and returns the concentration product for the equilibrium residual calculation based on the current guess.
 
-        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
-        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
+        :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
+        :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         """
 
         product = 1.0
-        for species, coeff in self._stoichiometry.items():
+        for species, coeff in self._stoich.items():
             if species in self._nonsolids:
                 product *= guess[species_indices[species]] ** coeff
         return product
@@ -122,11 +142,11 @@ class Dissociation:
         """
         Calculates and returns the equilibrium constant for the reaction at the given temperature.
 
-        @param temperature (float) : The temperature in Kelvin.
+        :param float temperature: The temperature in Kelvin.
         """
 
         self._validate_temperature(temperature)
-        molecule_compound = compounds[self.molecule]
+        molecule_compound = compounds[self._molecule]
         ecc = 10 ** molecule_compound.logKf(temperature)
         return ecc
 
@@ -136,9 +156,9 @@ class Dissociation:
         """
         Calculates and returns the equilibrium residual for the current guess of species concentrations and temperature at the given pressure.
 
-        @param guess (list[float]) : The current guess for the species concentrations, where the last element is the temperature.
-        @param species_indices (dict[str, int]) : A mapping of species names to their corresponding indices in the guess list.
-        @param pressure_bar (float) : The total pressure in bars (default is 1.0 bar).
+        :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
+        :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
+        :param float pressure_bar: The total pressure in bars (default is 1.0 bar).
         """
 
         self._validate_guess(guess, species_indices)
