@@ -26,6 +26,7 @@ class DissociativeReaction:
         self.concentration_resolution = conc_res
         self.percent_combustion = comb
         self._set_init_conc_dicts()
+        self._set_total_atoms()
 
 
     @property
@@ -192,5 +193,18 @@ class DissociativeReaction:
             fuel_conc += conc_step
         self._init_conc_list = conc_list
 
-test = DissociativeReaction({'Methane': 1, "Carbon_Dioxide": 2}, {"Oxygen": 21, "Nitrogen": 79}, {'Methane': 300, 'Oxygen': 300, "Nitrogen": 300, "Carbon_Dioxide": 300}, conc_res=104, comb=0.8)
-print(test._find_atom_contributions())
+
+    def _set_total_atoms(self):
+
+        atom_contrib = self._find_atom_contributions()
+        atom_totals_list: list[dict[int, float]] = []
+        for conc_dict in self._init_conc_list:
+            atom_totals: dict[int, float] = dict()
+            for atom, species_contrib in atom_contrib.items():
+                for species, contrib in species_contrib.items():
+                    atom_totals[atom] = atom_totals.get(atom, 0) + conc_dict[species] * contrib
+            atom_totals_list.append(atom_totals)
+        self._atom_totals_list = atom_totals_list
+
+test = DissociativeReaction({'Methane': 1, "Carbon_Dioxide": 2}, {"Oxygen": 21, "Nitrogen": 79}, {'Methane': 300, 'Oxygen': 300, "Nitrogen": 300, "Carbon_Dioxide": 300}, conc_res=10, comb=0.8)
+print(test._atom_totals_list)
