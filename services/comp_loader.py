@@ -25,7 +25,7 @@ class CompoundLoader:
         data_table = TD[TD["Compound"] == id]
 
         temperatures = data_table["T"].to_numpy(dtype=np.float64)
-        Cf_list = data_table["Cf"].to_numpy(dtype=np.float64)
+        Cp_list = data_table["Cp"].to_numpy(dtype=np.float64)
         S_list = data_table["S"].to_numpy(dtype=np.float64)
         DS_list = self._convert_infs(data_table["(G-H)/T"].to_numpy()) # data includes 'inf' strings
         SH_list = data_table["SH"].to_numpy(dtype=np.float64)
@@ -35,7 +35,7 @@ class CompoundLoader:
 
         compound_data = CompoundData(
             temperatures=temperatures,
-            Cf_list=Cf_list,
+            Cp_list=Cp_list,
             S_list=S_list,
             DS_list=DS_list,
             SH_list=SH_list,
