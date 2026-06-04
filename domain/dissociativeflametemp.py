@@ -7,26 +7,24 @@
 
 from chempy.util.parsing import formula_to_composition
 from domain.compounds import compounds
+from numpy import column_stack, float64, linspace
+from numpy.typing import NDArray
 
 class DissociativeReaction:
 
-    def __init__(self, fuels: dict[str, float], oxi: dict[str, float], temps: dict[str, float], conc_res: int = 100, comb: float = 1.0):
+    def __init__(self, fuels: dict[str, float], oxi: dict[str, float], temps: dict[str, float], conc_res: int = 100):
 
         """
         :param dict[str, float] fuels: A dictionary mapping fuel species' IDs to their relative ratios.
         :param dict[str, float] oxi: A dictionary mapping oxidant species' IDs to their relative ratios.
         :param dict[str, float] temps: A mapping of species IDs to their corresponding temperatures in Kelvin for this reaction.
         :param int conc_res: The concentration resolution for the calculation.
-        :param float comb: The percent combustion.
         """
 
         self._set_fuels(fuels)
         self._set_oxidants(oxi)
         self.temperatures = temps
         self.concentration_resolution = conc_res
-        self.percent_combustion = comb
-        self._set_init_conc_dicts()
-        self._set_total_atoms()
 
 
     @property
@@ -46,6 +44,8 @@ class DissociativeReaction:
         if not all(ratio > 0 for ratio in fuels.values()):
             raise ValueError("All fuel ratios must be positive.")
         self._fuels: dict[str, float] = self._normalize_ratios(fuels)
+        self._fuel_atoms = self._atoms_per_input(self._fuels)
+        self._update_atom_counts()
 
 
     @property
@@ -65,6 +65,8 @@ class DissociativeReaction:
         if not all(ratio > 0 for ratio in oxidants.values()):
             raise ValueError("All oxidant ratios must be positive.")
         self._oxidants: dict[str, float] = self._normalize_ratios(oxidants)
+        self._oxidant_atoms = self._atoms_per_input(self._oxidants)
+        self._update_atom_counts()
 
 
     def _normalize_ratios(self, ratios: dict[str, float]) -> dict[str, float]:
@@ -79,6 +81,22 @@ class DissociativeReaction:
 
         total = sum(ratios.values())
         return {species: ratio / total for species, ratio in ratios.items()}
+    
+
+    def _atoms_per_input(self, ratio_dict: dict[str, float]) -> dict[int, float]:
+
+        """
+        :param dict[str, float] ratio_dict: A dictionary mapping species IDs to their relative ratios.
+
+        :return: A dictionary mapping each atom present in the fuels and oxidants of this reaction to the total number of atoms contributed by the input ratios.
+        """
+
+        atom_totals: dict[int, float] = dict()
+        for species in ratio_dict.keys():
+            species_makeup = formula_to_composition(compounds[species].formula)
+            for atom, count in species_makeup.items():
+                atom_totals[atom] = atom_totals.get(atom, 0) + ratio_dict[species] * count
+        return atom_totals
 
 
     @property
@@ -119,92 +137,52 @@ class DissociativeReaction:
         if res < 2:
             raise ValueError("Concentration resolution must be 2 or greater.")
         self._conc_res = res
+        self._update_atom_counts()
 
 
-    @property
-    def percent_combustion(self) -> float:
+    def _update_atom_counts(self):
 
         """
-        :return: The percent combustion to calculate the adiabatic flame temperature for.
+        Updates the initial atoms counts for each fuel-to-oxidant ratio to reflect the percent combustion for this reaction.
         """
 
-        return self._combustion
+        required = (
+            hasattr(self, "_fuel_atoms"),
+            hasattr(self, "_oxidant_atoms"),
+            hasattr(self, "_conc_res"),
+        )
+
+        if not all(required):
+            return # Don't update if any of the required attributes haven't been set yet, as in initialization
+
+        self._calc_fuel_oxi_ratios()
+        self._calc_init_atom_counts()
+
+
+    def _calc_fuel_oxi_ratios(self):
+
+        """
+        Generates the (n x 2) numpy array where each row is a combination of fuel and oxidant ratios to calculate for this reaction.
+        """
+
+        res = self._conc_res
+        fuel_props = linspace(1/(res + 1), res/(res + 1), res)
+        oxidant_props= 1.0 - fuel_props
+        self._fuel_oxi_ratios = column_stack((fuel_props, oxidant_props))
     
 
-    @percent_combustion.setter
-    def percent_combustion(self, comb: float):
-
-        if not (0 < comb <= 1):
-            raise ValueError("Percent combustion must be between 0 and 1.")
-        self._combustion = comb
-
-
-    def _list_atoms(self) -> set[int]:
+    def _calc_init_atom_counts(self):
 
         """
-        :return: A set of all atoms present in the fuels and oxidants of this reaction.
+        Generates the list of dictionaries mapping each atom present in the reactants to their total initial counts for each fuel-to-oxidant ratio to be calculated.
         """
 
-        atoms: set[int] = set()
-        for species in self._fuels | self._oxidants:
-            formula = compounds[species].formula
-            composition: dict[int, int] = formula_to_composition(formula)
-            for element in composition.keys():
-                atoms.add(element)
-        return atoms
-
-
-    def _find_atom_contributions(self) -> dict[int, dict[str, int]]:
-
-        """
-        :return: A dictionary mapping each atom present in the fuels and oxidants of this reaction to a dictionary mapping each species containing that atom to the number of atoms contributed by that species.
-
-            For example, if the reaction is CH4 + 2 O2, the return value would be:
-            {6: {'Methane': 1}, 1: {'Methane': 4}, 8: {'Oxygen': 2}}
-        """
-
-        atom_contrib: dict[int, dict[str, int]] = dict()
-        atom_set = self._list_atoms()
-        for atom in atom_set:
-            atom_contrib[atom] = dict()
-            for species in self._fuels | self._oxidants:
-                formula = compounds[species].formula
-                composition: dict[int, int] = formula_to_composition(formula)
-                if atom in composition:
-                    atom_contrib[atom][species] = composition[atom]
-        return atom_contrib
-
-
-    def _set_init_conc_dicts(self):
-
-        """
-        Generates a list of dictionaries mapping species IDs to their initial concentrations for each fuel-to-oxidant ratio to be calculated.
-        """
-
-        conc_step = 1 / (self._conc_res + 1)
-        conc_list: list[dict[str, float]] = []
-        fuel_conc = conc_step
-        while fuel_conc < 1:
-            oxidant_conc = 1 - fuel_conc
-            conc_dict = {species: fuel_conc * ratio for species, ratio in self._fuels.items()}
-            for species, ratio in self._oxidants.items():
-                conc_dict[species] = oxidant_conc * ratio
-            conc_list.append(conc_dict)
-            fuel_conc += conc_step
-        self._init_conc_list = conc_list
-
-
-    def _set_total_atoms(self):
-
-        atom_contrib = self._find_atom_contributions()
-        atom_totals_list: list[dict[int, float]] = []
-        for conc_dict in self._init_conc_list:
-            atom_totals: dict[int, float] = dict()
-            for atom, species_contrib in atom_contrib.items():
-                for species, contrib in species_contrib.items():
-                    atom_totals[atom] = atom_totals.get(atom, 0) + conc_dict[species] * contrib
-            atom_totals_list.append(atom_totals)
-        self._atom_totals_list = atom_totals_list
-
-test = DissociativeReaction({'Methane': 1, "Carbon_Dioxide": 2}, {"Oxygen": 21, "Nitrogen": 79}, {'Methane': 300, 'Oxygen': 300, "Nitrogen": 300, "Carbon_Dioxide": 300}, conc_res=10, comb=0.8)
-print(test._atom_totals_list)
+        initial_atoms: list[dict[int, float64]] = []
+        for ratio in self._fuel_oxi_ratios:
+            atom_qtys: dict[int, float64] = dict()
+            for atom, amount in self._fuel_atoms.items():
+                atom_qtys[atom] = ratio[0] * amount # The atoms contributed by the fuels
+            for atom, amount in self._oxidant_atoms.items():
+                atom_qtys[atom] = atom_qtys.get(atom, 0) + ratio[1] * amount # Adding the atoms contributed by the oxidants
+            initial_atoms.append(atom_qtys)
+        self._init_atom_counts = initial_atoms
