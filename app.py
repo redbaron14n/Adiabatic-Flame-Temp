@@ -127,8 +127,8 @@ def on_compound_graph_update(_, compound_id: str, compound_var: str) -> go.Figur
     y_vals: NDArray = compound.get_data(compound_var)
     x_vals: NDArray = compound.get_temperatures()
     match compound_var:
-        case "Cf":
-            y_label = "Specific Heat Capacity (Cf) [J/(mol·K)]"
+        case "Cp":
+            y_label = "Specific Heat Capacity (Cp) [J/(mol·K)]"
         case "S":
             y_label = "Standard Entropy (S°) [J/(mol·K)]"
         case "DS":
@@ -184,7 +184,7 @@ def compound_controls() -> html.Div:
             dcc.Dropdown(
                 id="compound-variable",
                 options=[
-                    {"label": "Specific Heat Capacity (Cf)", "value": "Cf"},
+                    {"label": "Specific Heat Capacity (Cp)", "value": "Cp"},
                     {"label": "Standard Entropy (S°)", "value": "S"},
                     {"label": "Total Entropy Change (ΔS)", "value": "DS"},
                     {"label": "Sensible Heat (SH)", "value": "SH"},

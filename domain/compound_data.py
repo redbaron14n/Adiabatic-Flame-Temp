@@ -16,7 +16,7 @@ Dataclass stores data pulled from .csv file as named attributes
 @dataclass
 class CompoundData:
     temperatures: numpy.ndarray
-    Cf_list: numpy.ndarray
+    Cp_list: numpy.ndarray
     S_list: numpy.ndarray
     DS_list: numpy.ndarray
     SH_list: numpy.ndarray

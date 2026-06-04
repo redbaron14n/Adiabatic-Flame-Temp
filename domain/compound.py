@@ -22,9 +22,9 @@ class Compound:
         self.state: str = state
         self._data: CompoundData = data
 
-        self._Cf_function = make_interp_spline(
+        self._Cp_function = make_interp_spline(
             self._data.temperatures,
-            self._data.Cf_list,
+            self._data.Cp_list,
             k=1,
         )
 
@@ -59,13 +59,13 @@ class Compound:
         self.stdHf = self._Hf_function(STANDARD_REF_TEMP)
 
 
-    def Cf(self, temperature: float) -> float:
+    def Cp(self, temperature: float) -> float:
 
         """
-        Returns the heat capacity (kJ/mol-K) of the compound at a given temperature (K).
+        Returns the constant-pressure specific heat capacity (kJ/mol-K) of the compound at a given temperature (K).
         """
 
-        value = float(self._Cf_function(temperature))
+        value = float(self._Cp_function(temperature))
         return value
     
 
@@ -142,12 +142,12 @@ class Compound:
 
         """
         Returns the data list corresponding to the given label.
-        Labels: "Cf", "S", "DS", "Hf", "SH", "Gf", "logKf"
+        Labels: "Cp", "S", "DS", "Hf", "SH", "Gf", "logKf"
         """
 
         match label:
-            case "Cf":
-                return self._data.Cf_list
+            case "Cp":
+                return self._data.Cp_list
             case "S":
                 return self._data.S_list
             case "DS":
