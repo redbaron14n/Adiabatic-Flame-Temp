@@ -7,18 +7,27 @@
 
 from chempy.util.parsing import formula_to_composition
 from domain.compounds import compounds
+from domain.dissociation import Dissociation
 from config import determine_basic_products, INERTS
 from numpy import column_stack, float64, linspace
 from numpy.typing import NDArray
 
 class DissociativeReaction:
 
-    def __init__(self, fuels: dict[str, float], oxi: dict[str, float], temps: dict[str, float], conc_res: int = 100):
+    def __init__(
+            self,
+            fuels: dict[str, float],
+            oxi: dict[str, float],
+            temps: dict[str, float],
+            pres_bar: float = 1.0,
+            conc_res: int = 100
+        ):
 
         """
         :param dict[str, float] fuels: A dictionary mapping fuel species' IDs to their relative ratios.
         :param dict[str, float] oxi: A dictionary mapping oxidant species' IDs to their relative ratios.
         :param dict[str, float] temps: A mapping of species IDs to their corresponding temperatures in Kelvin for this reaction.
+        :param float pres_bar: The pressure in bars for this reaction. Default is 1.0 bar.
         :param int conc_res: The concentration resolution for the calculation.
         """
 
@@ -27,6 +36,7 @@ class DissociativeReaction:
         self._set_reactants()
         self._set_products()
         self.temperatures = temps
+        self.pressure_bar = pres_bar
         self.concentration_resolution = conc_res
 
 
@@ -125,6 +135,24 @@ class DissociativeReaction:
 
 
     @property
+    def pressure_bar(self) -> float:
+
+        """
+        :return: The pressure in bars for this reaction.
+        """
+
+        return self._pres_bar
+    
+
+    @pressure_bar.setter
+    def pressure_bar(self, pres: float):
+
+        if pres <= 0:
+            raise ValueError("Pressure must be greater than 0 bar.")
+        self._pres_bar = pres
+
+
+    @property
     def concentration_resolution(self) -> int:
 
         """
@@ -214,3 +242,46 @@ class DissociativeReaction:
         for species in fundamentals:
             products.update(compounds[species].dissociates)
         self._products = products
+
+
+    def _atom_balance_residual(self, atom: int, initial_count: float, guess: NDArray[float64], species_indices: dict[str, int]) -> float:
+
+        """
+        :return: The residual for the balance of the given atom for the given guess of species concentrations, calculated as the initial count of the atom minus the count of the atom in the products based on the guess.
+        """
+        
+        residual = -initial_count
+        for species in self._products:
+            atomic_comp = formula_to_composition(compounds[species].formula)
+            residual += atomic_comp.get(atom, 0) * guess[species_indices[species]]
+        return residual
+    
+
+    def _abr_list(self, initial_atoms: dict[int, float64], guess: NDArray[float64], species_indices: dict[str, int]) -> list[float]:
+
+        """
+        :return: A list of the atom balance residuals for each atom present in the reactants for the given guess of species concentrations.
+        """
+
+        return [self._atom_balance_residual(atom, count, guess, species_indices) for atom, count in initial_atoms.items()]
+    
+
+    def _equilibrium_residual(self, molecule: str, guess: NDArray[float64], species_indices: dict[str, int]) -> float:
+
+        """
+        :return: The residual for the equilibrium of the dissociation of the given molecule for the given guess of species concentrations.
+        """
+
+        components = set(compounds[molecule].composition.keys())
+        diss_reaction = Dissociation(molecule, components)
+        residual = diss_reaction.equilibrium_residual(guess.tolist(), species_indices, self._pres_bar)
+        return residual
+    
+
+    def _er_list(self, guess: NDArray[float64], species_indices: dict[str, int]) -> list[float]:
+
+        residuals = []
+        for molecule in self._products:
+            if compounds[molecule].composition:
+                residuals.append(self._equilibrium_residual(molecule, guess, species_indices))
+        return residuals

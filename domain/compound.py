@@ -13,13 +13,34 @@ from scipy.interpolate import BSpline, make_interp_spline
 
 class Compound:
 
-    def __init__(self, name: str, formula: str, id: str, data: CompoundData, dissociates: set[str] = set(), state: str = "g"):
+    def __init__(
+            self,
+            name: str,
+            formula: str,
+            id: str,
+            data: CompoundData,
+            dissociates: set[str] = set(),
+            composition: dict[str, float] = dict(),
+            state: str = "g"
+        ):
+
+        """
+        :param str name: The common name of the compound.
+        :param str formula: The chemical formula of the compound.
+        :param str id: A unique identifier for the compound.
+        :param CompoundData data: A CompoundData object containing the thermodynamic data for the compound.
+        :param set[str] dissociates: A set of compound IDs that this compound can dissociate into. Default is an empty set.
+        :param dict[str, float] composition: A dictionary mapping the IDs of the elements in the compound to their stoichiometric coefficients for one mole of the compound. Default is an empty dictionary.
+        :param str state: The reference state of the compound, either "g" for gas or "s" for solid. Default is "g".
+        """
+
         self.name: str = name
         self.formula: str = formula
         self.id: str = id
         self.state: str = state
         self.dissociates = dissociates
         self._data: CompoundData = data
+        self.composition = composition
 
         self._Cp_function = make_interp_spline(
             self._data.temperatures,

@@ -71,7 +71,7 @@ class Dissociation:
 
     def _validate_guess(self, guess: list[float], species_indices: dict[str, int]):
 
-        if len(guess) != len(species_indices) + 1:
+        if len(guess) != len(species_indices):
             raise ValueError(
                 f"Guess list length does not match number of species plus 1.\n"
                 f"Guess: {guess}\n"
@@ -146,7 +146,6 @@ class Dissociation:
         :param float temperature: The temperature in Kelvin.
         """
 
-        self._validate_temperature(temperature)
         molecule_compound = compounds[self._molecule]
         ecc = 10 ** molecule_compound.logKf(temperature)
         return ecc
@@ -157,13 +156,14 @@ class Dissociation:
         """
         Calculates and returns the equilibrium residual for the current guess of species concentrations and temperature at the given pressure.
 
-        :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
+        :param list[float] guess: The current guess for the species concentrations and temperature.
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         :param float pressure_bar: The total pressure in bars (default is 1.0 bar).
         """
 
         self._validate_guess(guess, species_indices)
-        temp = guess[-1]
+        temp = guess[species_indices["T"]]
+        self._validate_temperature(temp)
         conc_prod = self._calculate_concentration_product(guess, species_indices)
         pressure_factor = self._calculate_pressure_factor(guess, species_indices, pressure_bar)
         ecc = self.get_equilibrium_constant(temp)

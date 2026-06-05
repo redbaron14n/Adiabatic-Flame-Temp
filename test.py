@@ -1,14 +1,17 @@
-from domain.reaction import Reaction
-from numpy import array, vstack
+from domain.dissociativeflametemp import DissociativeReaction
+from numpy import array
 
-test_reaction = Reaction({"Hydrogen", "Oxygen"}, {"Hydrogen": 298.15, "Oxygen": 298.15})
 
-test_rows = [1, 12, 17, 23, 27, 28, 31, 34, 36, 38]
-test_points = [x - 1 for x in test_rows]
-test_concentrations = array([x / 51 for x in test_rows])
+guess = array([750.0, 0.5, 0.5, 0.1, 0.4, 0.7, 0.2, 0.9, 0.1, 0.5, 0.1])
+species_indices = {"T": 0, "Methane": 1, "Oxygen": 2, "Carbon_Dioxide": 3, "Water": 4, "Carbon_Monoxide": 5, "Oxygen_Monatomic": 6, "Carbon": 7, "Hydrogen": 8, "Hydroxyl": 9, "Hydrogen_Monatomic": 10}
 
-flame_table = test_reaction.calc_flame_table("Hydrogen", {"Hydrogen": 2, "Oxygen": 1}, 50)
-test_values = array([flame_table[1, i] for i in test_points])
 
-test_table = vstack((test_concentrations, test_values)).T
-print(test_table)
+test_reaction = DissociativeReaction(
+        fuels = {"Methane": 1},
+        oxi = {"Oxygen": 1},
+        temps = {"Methane": 300, "Oxygen": 300},
+        pres_bar = 1.0,
+        conc_res = 5
+    )
+
+print(test_reaction._equilibrium_residual("Methane", guess, species_indices)) # This does not agree with manual calculation.
