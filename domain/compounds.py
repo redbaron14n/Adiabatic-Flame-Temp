@@ -24,13 +24,14 @@ compounds["Carbon_Dioxide"] = Compound(
     formula="CO2",
     id="Carbon_Dioxide",
     data=load_compound_data("Carbon_Dioxide"),
+    dissociates = {"Carbon_Monoxide", "Oxygen_Monatomic", "Carbon", "Oxygen"}
 )
 
 compounds["Methane"] = Compound(
     name="Methane",
     formula="CH4",
     id="Methane",
-    data=load_compound_data("Methane"),
+    data=load_compound_data("Methane")
 )
 
 compounds["Water"] = Compound(
@@ -38,6 +39,7 @@ compounds["Water"] = Compound(
     formula="H2O",
     id="Water",
     data=load_compound_data("Water"),
+    dissociates = {"Hydrogen", "Oxygen_Monatomic", "Hydroxyl", "Hydrogen_Monatomic"}
 )
 
 compounds["Oxygen"] = Compound(
@@ -45,6 +47,7 @@ compounds["Oxygen"] = Compound(
     formula="O2",
     id="Oxygen",
     data=load_compound_data("Oxygen"),
+    dissociates = {"Oxygen_Monatomic"}
 )
 
 compounds["Hydrogen"] = Compound(
@@ -52,6 +55,7 @@ compounds["Hydrogen"] = Compound(
     formula = "H2",
     id = "Hydrogen",
     data = load_compound_data("Hydrogen"),
+    dissociates = {"Hydrogen_Monatomic"}
 )
 
 compounds["Nitrogen"] = Compound(
@@ -101,12 +105,14 @@ compounds["Hydroxyl"] = Compound(
     name = "Hydroxyl",
     formula = "OH",
     id = "Hydroxyl",
-    data = load_compound_data("Hydroxyl")
+    data = load_compound_data("Hydroxyl"),
+    dissociates = {"Oxygen_Monatomic", "Hydrogen_Monatomic"}
 )
 
 compounds["Carbon_Monoxide"] = Compound(
     name = "Carbon Monoxide",
     formula = "CO",
     id = "Carbon_Monoxide",
-    data = load_compound_data("Carbon_Monoxide")
+    data = load_compound_data("Carbon_Monoxide"),
+    dissociates = {"Carbon", "Oxygen_Monatomic"}
 )

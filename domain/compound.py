@@ -10,16 +10,15 @@ from numpy.typing import NDArray
 from domain.compound_data import CompoundData
 from scipy.interpolate import BSpline, make_interp_spline
 
-STANDARD_REF_TEMP = 298.15
-
 
 class Compound:
 
-    def __init__(self, name: str, formula: str, id: str, data: CompoundData, state: str = "g"):
+    def __init__(self, name: str, formula: str, id: str, data: CompoundData, dissociates: set[str] = set(), state: str = "g"):
         self.name: str = name
         self.formula: str = formula
         self.id: str = id
         self.state: str = state
+        self.dissociates = dissociates
         self._data: CompoundData = data
 
         self._Cp_function = make_interp_spline(
@@ -56,7 +55,27 @@ class Compound:
 
         self._logKf_function = self._make_finite_function(self._data.logKf_list)
 
-        self.stdHf = self._Hf_function(STANDARD_REF_TEMP)
+        self._set_std_temp()
+
+        self.stdHf = self._Hf_function(self.std_temp)
+
+
+    def _set_std_temp(self):
+
+        """
+        Sets the standard reference temperature for the compound based on the data provided.
+        """
+
+        temp = -1.0
+        index = 0
+        SH_data = self._data.SH_list
+        while temp == -1.0:
+            if SH_data[index] == 0.0:
+                temp = self._data.temperatures[index]
+            index += 1
+        if temp == -1.0:
+            raise ValueError("No standard reference temperature found in data.")
+        self.std_temp = temp
 
 
     def Cp(self, temperature: float) -> float:

@@ -7,6 +7,7 @@
 
 from chempy.util.parsing import formula_to_composition
 from domain.compounds import compounds
+from config import determine_basic_products, INERTS
 from numpy import column_stack, float64, linspace
 from numpy.typing import NDArray
 
@@ -23,6 +24,8 @@ class DissociativeReaction:
 
         self._set_fuels(fuels)
         self._set_oxidants(oxi)
+        self._set_reactants()
+        self._set_products()
         self.temperatures = temps
         self.concentration_resolution = conc_res
 
@@ -186,3 +189,28 @@ class DissociativeReaction:
                 atom_qtys[atom] = atom_qtys.get(atom, 0) + ratio[1] * amount # Adding the atoms contributed by the oxidants
             initial_atoms.append(atom_qtys)
         self._init_atom_counts = initial_atoms
+
+
+    def _set_reactants(self):
+
+        """
+        Sets the reactants for this reaction as the union of the fuels and oxidants.
+        """
+
+        fuels = set(self.fuels.keys())
+        oxidants = set(self.oxidants.keys())
+        self._reactants: set[str] = fuels.union(oxidants)
+
+
+    def _set_products(self):
+        
+        """
+        Finds and sets the product, including any dissociation products, and reactant (in-case of incomplete combustion) species IDs for the reaction's set of reactants.
+        """
+
+        active_reactants = self._reactants - INERTS
+        fundamentals = determine_basic_products(active_reactants).union(self._reactants)
+        products = set(fundamentals)
+        for species in fundamentals:
+            products.update(compounds[species].dissociates)
+        self._products = products

@@ -22,3 +22,12 @@ def products_from_reactants(reactants: set[str], dissociation: bool = False) -> 
             f"{reactants}"
         )
     return products, inert_reactants
+
+
+def determine_basic_products(actives: set[str]) -> set[str]: # Will take over 'products_from_reactants' as main product generator, but I will need to slightly refactor 'reaction.py'.
+
+    if actives == {"Hydrogen", "Oxygen"}:
+        fund = {"Water"}
+    else:
+        fund = {"Carbon_Dioxide", "Water"} # Default
+    return fund
