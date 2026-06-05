@@ -7,7 +7,7 @@
 
 from chempy import balance_stoichiometry
 from domain.compound import Compound
-from domain.compounds import compounds
+from domain.compounds import compounds, compounds_by_formula
 from math import isclose
 
 class Dissociation:
@@ -64,9 +64,9 @@ class Dissociation:
 
         self._nonsolids: set[str] = set()
         for species in self._stoich.keys():
-            for compound in compounds.values():
-                if compound.formula == species and compound.state != "s":
-                    self._nonsolids.add(compound.id)
+            compound = compounds_by_formula[species]
+            if compound.state != "s":
+                self._nonsolids.add(compound.id)
 
 
     def _validate_guess(self, guess: list[float], species_indices: dict[str, int]):
@@ -124,10 +124,11 @@ class Dissociation:
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         """
 
-        product = 1.0
+        product = guess[species_indices[self._molecule]] ** self._stoich[compounds[self._molecule].formula]
         for species, coeff in self._stoich.items():
-            if species in self._nonsolids:
-                product *= guess[species_indices[species]] ** coeff
+            species = compounds_by_formula[species].id # Convert from formula to ID for indexing guess list
+            if (species in self._nonsolids) and (species != self._molecule):
+                product /= guess[species_indices[species]] ** coeff
         return product
 
 

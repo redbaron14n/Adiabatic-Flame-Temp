@@ -116,3 +116,5 @@ compounds["Carbon_Monoxide"] = Compound(
     data = load_compound_data("Carbon_Monoxide"),
     dissociates = {"Carbon", "Oxygen_Monatomic"}
 )
+
+compounds_by_formula: dict[str, Compound] = {c.formula: c for c in compounds.values()}
