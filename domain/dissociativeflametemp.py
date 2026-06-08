@@ -40,6 +40,8 @@ class DissociativeReaction:
         self.temperatures = temps
         self.pressure_bar = pres_bar
         self.concentration_resolution = conc_res
+        self._update_fuel_oxi_ratios()
+        self._set_init_ratios()
 
 
     @property
@@ -188,11 +190,11 @@ class DissociativeReaction:
         if not all(required):
             return # Don't update if any of the required attributes haven't been set yet, as in initialization
 
-        self._calc_fuel_oxi_ratios()
+        self._update_fuel_oxi_ratios()
         self._calc_init_atom_counts()
 
 
-    def _calc_fuel_oxi_ratios(self):
+    def _update_fuel_oxi_ratios(self):
 
         """
         Generates the (n x 2) numpy array where each row is a combination of fuel and oxidant ratios to calculate for this reaction.
@@ -219,6 +221,23 @@ class DissociativeReaction:
                 atom_qtys[atom] = atom_qtys.get(atom, 0) + ratio[1] * amount # Adding the atoms contributed by the oxidants
             initial_atoms.append(atom_qtys)
         self._init_atom_counts = initial_atoms
+
+
+    def _set_init_ratios(self):
+
+        """
+        Calculates and sets the initial ratios of each species for each fuel-to-oxidant ratio to be calculated.
+        """
+
+        init_ratios: list[dict[str, float]] = []
+        for ratio in self._fuel_oxi_ratios:
+            ratio_dict: dict[str, float] = dict()
+            for fuel, fuel_ratio in self._fuels.items():
+                ratio_dict[fuel] = fuel_ratio * ratio[0]
+            for oxi, oxi_ratio in self._oxidants.items():
+                ratio_dict[oxi] = oxi_ratio * ratio[1]
+            init_ratios.append(ratio_dict)
+        self._init_ratios = init_ratios
 
 
     def _set_reactants(self):
@@ -291,10 +310,45 @@ class DissociativeReaction:
         return residual
     
 
-    def _er_list(self, guess: NDArray[float64]) -> list[float]:
+    def _eqr_list(self, guess: NDArray[float64]) -> list[float]:
 
         residuals: list[float] = []
         for molecule in self._products:
             if compounds[molecule].composition:
                 residuals.append(self._equilibrium_residual(molecule, guess))
         return residuals
+    
+
+    def _calc_product_heat(self, guess: NDArray[float64]) -> float:
+
+        temp: float = guess[self._item_indices["T"]]
+        product_heat: float = 0.0
+        for species, idx in self._item_indices.items():
+            if species != "T":
+                compound = compounds[species]
+                product_heat += guess[idx] * (compound.SH(temp) + compound.stdHf)
+        return product_heat
+    
+
+    def _calc_reactant_heat(self, init_ratios: dict[str, float]) -> float:
+
+        reactant_heat: float = 0.0
+        for species, ratio in init_ratios.items():
+            temp = self.temperatures[species]
+            compound = compounds[species]
+            reactant_heat += ratio * (compound.SH(temp) + compound.stdHf)
+        return reactant_heat
+    
+
+    def _energy_residual(self, guess: NDArray[float64], init_ratios: dict[str, float]) -> float:
+
+        """
+        :param  NDArray[float64] guess: The current guess for the species concentrations and temperature.
+        :param dict[str, float] init_ratios: A dictionary mapping species IDs to their initial ratios for this fuel-to-oxidant ratio.
+
+        :return: The residual for the energy balance of the reaction for the given guess of species concentrations and temperature, calculated as the total enthalpy of the products based on the guess concentrations and temperature minus the total enthalpy of the reactants based on the initial ratios and entry temperatures.
+        """
+
+        product_heat = self._calc_product_heat(guess)
+        reactant_heat = self._calc_reactant_heat(init_ratios)
+        return product_heat - reactant_heat

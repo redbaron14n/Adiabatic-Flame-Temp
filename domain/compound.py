@@ -78,7 +78,7 @@ class Compound:
 
         self._set_std_temp()
 
-        self.stdHf = self._Hf_function(self.std_temp)
+        self.stdHf: float = self._Hf_function(self.std_temp)
 
 
     def _set_std_temp(self):
@@ -87,7 +87,7 @@ class Compound:
         Sets the standard reference temperature for the compound based on the data provided.
         """
 
-        temp = -1.0
+        temp: float = -1.0
         index = 0
         SH_data = self._data.SH_list
         while temp == -1.0:
