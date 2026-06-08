@@ -9,9 +9,9 @@ from chempy.util.parsing import formula_to_composition
 from domain.compounds import compounds
 from domain.dissociation import Dissociation
 from config import determine_basic_products, INERTS
-from numpy import array, column_stack, float64, linspace, ones
+from numpy import append, array, column_stack, float64, linspace, ones
 from numpy.typing import NDArray
-from scipy.optimize import fsolve
+from scipy.optimize import least_squares, fsolve
 
 class DissociativeReaction:
 
@@ -42,6 +42,9 @@ class DissociativeReaction:
         self.concentration_resolution = conc_res
         self._update_fuel_oxi_ratios()
         self._set_init_ratios()
+        self._set_bounds()
+        self._record = []
+        self._pass_num = 0
 
 
     @property
@@ -110,7 +113,13 @@ class DissociativeReaction:
 
         atom_totals: dict[int, float] = dict()
         for species in ratio_dict.keys():
-            species_makeup = formula_to_composition(compounds[species].formula)
+            # species_makeup = formula_to_composition(compounds[species].formula)
+            species_makeup = { # Sanitizing result from SymPy objects
+                int(atom): float(count)
+                for atom, count in formula_to_composition(
+                    compounds[species].formula
+                ).items()
+            }
             for atom, count in species_makeup.items():
                 atom_totals[atom] = atom_totals.get(atom, 0) + ratio_dict[species] * count
         return atom_totals
@@ -223,7 +232,7 @@ class DissociativeReaction:
         self._init_atom_counts = initial_atoms
 
 
-    def _set_init_ratios(self):
+    def _set_init_ratios(self): # Very similar to _calc_init_atom_counts; probably a way to merge these into one
 
         """
         Calculates and sets the initial ratios of each species for each fuel-to-oxidant ratio to be calculated.
@@ -284,7 +293,13 @@ class DissociativeReaction:
         
         residual: float = -initial_count
         for species in self._products:
-            atomic_comp: dict[int, float64] = formula_to_composition(compounds[species].formula)
+            # atomic_comp: dict[int, float64] = formula_to_composition(compounds[species].formula)
+            atomic_comp = {
+                int(atom): float(count)
+                for atom, count in formula_to_composition(
+                    compounds[species].formula
+                ).items()
+            }
             residual += atomic_comp.get(atom, 0) * guess[self._item_indices[species]]
         return residual
     
@@ -352,3 +367,35 @@ class DissociativeReaction:
         product_heat = self._calc_product_heat(guess)
         reactant_heat = self._calc_reactant_heat(init_ratios)
         return product_heat - reactant_heat
+    
+
+    def _residual_list(self, guess: NDArray[float64], conc_indx: int) -> list[float]:
+
+        res_list: list[float] = []
+        res_list.extend(self._abr_list(self._init_atom_counts[conc_indx], guess))
+        res_list.extend(self._eqr_list(guess))
+        res_list.append(self._energy_residual(guess, self._init_ratios[conc_indx]))
+
+        if self._pass_num == 295:
+            pass
+        self._pass_num += 1
+
+        print(f"Pass {self._pass_num}")
+        print(f"Guess: {guess}")
+        print(res_list)
+
+        return res_list
+    
+
+    def _set_bounds(self):
+
+        num_items = len(self._item_indices)
+        self._lower_bounds = [0.0] * num_items
+        self._upper_bounds = [6000.0] * num_items
+    
+
+    def equilibrate(self, conc_indx: int):
+
+        init_guess = [0.5] * (len(self._item_indices) - 1) + [3000.0] # Initial guess of 0.5 for all species concentrations and 3000 K for temperature; can be adjusted as needed
+        equil = least_squares(self._residual_list, init_guess, bounds=(self._lower_bounds, self._upper_bounds), args=(conc_indx,), ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=5000)
+        return equil

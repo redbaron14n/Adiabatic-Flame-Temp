@@ -8,7 +8,7 @@
 from chempy import balance_stoichiometry
 from domain.compound import Compound
 from domain.compounds import compounds, compounds_by_formula
-from math import isclose
+from math import isclose, log10
 
 class Dissociation:
 
@@ -54,7 +54,9 @@ class Dissociation:
 
         rfrms = {compounds[r].formula for r in self._radicals}
         mfrm = compounds[self._molecule].formula
-        rad, prod = balance_stoichiometry({mfrm}, rfrms)
+        rad_raw, prod_raw = balance_stoichiometry({mfrm}, rfrms)
+        rad = {species: float(coeff) for species, coeff in rad_raw.items()} # Sanitizing result from SymPy objects
+        prod = {species: float(coeff) for species, coeff in prod_raw.items()}
         stoich_dict = rad | prod
         factor = stoich_dict[mfrm]
         self._stoich: dict[str, float] = {k: v/factor for k, v in stoich_dict.items()}
@@ -98,10 +100,10 @@ class Dissociation:
         return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
-    def _calculate_pressure_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
+    def _calc_log_pres_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
 
         """
-        Calculates and returns the pressure factor for the equilibrium residual calculation based on the current guess and pressure.
+        Calculates and returns the logarithm of the pressure factor for the equilibrium residual calculation based on the current guess and pressure.
 
         :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
@@ -112,23 +114,23 @@ class Dissociation:
         if isclose(exponent, 0.0):
             return 1.0
         fraction = pressure_bar / sum(guess[species_indices[s]] for s in self._nonsolids)
-        return fraction ** exponent
+        return exponent * log10(fraction)
     
 
-    def _calculate_concentration_product(self, guess: list[float], species_indices: dict[str, int]) -> float:
+    def _calc_log_conc_product(self, guess: list[float], species_indices: dict[str, int]) -> float:
 
         """
-        Calculates and returns the concentration product for the equilibrium residual calculation based on the current guess.
+        Calculates and returns the logarithm of the concentration product for the equilibrium residual calculation based on the current guess.
 
         :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         """
 
-        product = guess[species_indices[self._molecule]] ** self._stoich[compounds[self._molecule].formula]
+        product = self._stoich[compounds[self._molecule].formula] * log10(guess[species_indices[self._molecule]])
         for species, coeff in self._stoich.items():
             species = compounds_by_formula[species].id # Convert from formula to ID for indexing guess list
             if (species in self._nonsolids) and (species != self._molecule):
-                product /= guess[species_indices[species]] ** coeff
+                product -= coeff * log10(guess[species_indices[species]])
         return product
 
 
@@ -138,7 +140,7 @@ class Dissociation:
             raise ValueError(f"Temperature must be greater than or equal to 0 K. Given: {temperature} K")
 
 
-    def get_equilibrium_constant(self, temperature: float) -> float:
+    def get_log_eq_constant(self, temperature: float) -> float:
 
         """
         Calculates and returns the equilibrium constant for the reaction at the given temperature.
@@ -147,7 +149,7 @@ class Dissociation:
         """
 
         molecule_compound = compounds[self._molecule]
-        ecc = 10 ** molecule_compound.logKf(temperature)
+        ecc = molecule_compound.logKf(temperature)
         return ecc
 
 
@@ -164,7 +166,9 @@ class Dissociation:
         self._validate_guess(guess, species_indices)
         temp = guess[species_indices["T"]]
         self._validate_temperature(temp)
-        conc_prod = self._calculate_concentration_product(guess, species_indices)
-        pressure_factor = self._calculate_pressure_factor(guess, species_indices, pressure_bar)
-        ecc = self.get_equilibrium_constant(temp)
-        return conc_prod * pressure_factor - ecc
+        conc_prod = self._calc_log_conc_product(guess, species_indices)
+        pressure_factor = self._calc_log_pres_factor(guess, species_indices, pressure_bar)
+        ecc = self.get_log_eq_constant(temp)
+        # print(f"{self._molecule} dissociation residual calculation: conc_prod={conc_prod}, pressure_factor={pressure_factor}, ecc={ecc}")
+        print(f"{self._molecule}: {guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
+        return conc_prod + pressure_factor - ecc
