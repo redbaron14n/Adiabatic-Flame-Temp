@@ -300,7 +300,7 @@ class DissociativeReaction:
                     compounds[species].formula
                 ).items()
             }
-            residual += atomic_comp.get(atom, 0) * guess[self._item_indices[species]]
+            residual += atomic_comp.get(atom, 0) * 10**(guess[self._item_indices[species]])
         return residual
     
 
@@ -341,7 +341,7 @@ class DissociativeReaction:
         for species, idx in self._item_indices.items():
             if species != "T":
                 compound = compounds[species]
-                product_heat += guess[idx] * (compound.SH(temp) + compound.stdHf)
+                product_heat += 10**guess[idx] * (compound.SH(temp) + compound.stdHf)
         return product_heat
     
 
@@ -390,12 +390,12 @@ class DissociativeReaction:
     def _set_bounds(self):
 
         num_items = len(self._item_indices)
-        self._lower_bounds = [0.0] * num_items
-        self._upper_bounds = [6000.0] * num_items
+        self._lower_bounds = [-15] * (num_items - 1) + [0.0]
+        self._upper_bounds = [5] * (num_items - 1) + [6000.0]
     
 
     def equilibrate(self, conc_indx: int):
 
-        init_guess = [0.5] * (len(self._item_indices) - 1) + [3000.0] # Initial guess of 0.5 for all species concentrations and 3000 K for temperature; can be adjusted as needed
+        init_guess = [-0.3] * (len(self._item_indices) - 1) + [3000.0] # Initial guess of 0.5 for all species concentrations and 3000 K for temperature; can be adjusted as needed
         equil = least_squares(self._residual_list, init_guess, bounds=(self._lower_bounds, self._upper_bounds), args=(conc_indx,), ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=5000)
         return equil

@@ -112,8 +112,8 @@ class Dissociation:
 
         exponent = self._calculate_pressure_exponent()
         if isclose(exponent, 0.0):
-            return 1.0
-        fraction = pressure_bar / sum(guess[species_indices[s]] for s in self._nonsolids)
+            return 0.0
+        fraction = pressure_bar / sum(10**guess[species_indices[s]] for s in self._nonsolids)
         return exponent * log10(fraction)
     
 
@@ -122,15 +122,15 @@ class Dissociation:
         """
         Calculates and returns the logarithm of the concentration product for the equilibrium residual calculation based on the current guess.
 
-        :param list[float] guess: The current guess for the species concentrations, where the last element is the temperature.
+        :param list[float] guess: The current guess for the logarithms of the species concentrations, where the last element is the temperature.
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         """
 
-        product = self._stoich[compounds[self._molecule].formula] * log10(guess[species_indices[self._molecule]])
+        product = self._stoich[compounds[self._molecule].formula] * guess[species_indices[self._molecule]]
         for species, coeff in self._stoich.items():
             species = compounds_by_formula[species].id # Convert from formula to ID for indexing guess list
             if (species in self._nonsolids) and (species != self._molecule):
-                product -= coeff * log10(guess[species_indices[species]])
+                product -= coeff * guess[species_indices[species]]
         return product
 
 
@@ -158,7 +158,7 @@ class Dissociation:
         """
         Calculates and returns the equilibrium residual for the current guess of species concentrations and temperature at the given pressure.
 
-        :param list[float] guess: The current guess for the species concentrations and temperature.
+        :param list[float] guess: The current guess for the logarithms of the species concentrations and temperature.
         :param dict[str, int] species_indices: A mapping of species names to their corresponding indices in the guess list.
         :param float pressure_bar: The total pressure in bars (default is 1.0 bar).
         """
@@ -170,5 +170,5 @@ class Dissociation:
         pressure_factor = self._calc_log_pres_factor(guess, species_indices, pressure_bar)
         ecc = self.get_log_eq_constant(temp)
         # print(f"{self._molecule} dissociation residual calculation: conc_prod={conc_prod}, pressure_factor={pressure_factor}, ecc={ecc}")
-        print(f"{self._molecule}: {guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
+        print(f"{self._molecule}: {10**guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
         return conc_prod + pressure_factor - ecc
