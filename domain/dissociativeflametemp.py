@@ -9,8 +9,9 @@ from chempy.util.parsing import formula_to_composition
 from domain.compounds import compounds
 from domain.dissociation import Dissociation
 from config import determine_basic_products, INERTS
-from numpy import column_stack, float64, linspace
+from numpy import array, column_stack, float64, linspace, ones
 from numpy.typing import NDArray
+from scipy.optimize import fsolve
 
 class DissociativeReaction:
 
@@ -35,6 +36,7 @@ class DissociativeReaction:
         self._set_oxidants(oxi)
         self._set_reactants()
         self._set_products()
+        self._set_item_indices()
         self.temperatures = temps
         self.pressure_bar = pres_bar
         self.concentration_resolution = conc_res
@@ -244,29 +246,40 @@ class DissociativeReaction:
         self._products = products
 
 
-    def _atom_balance_residual(self, atom: int, initial_count: float, guess: NDArray[float64], species_indices: dict[str, int]) -> float:
+    def _set_item_indices(self):
+
+        """
+        Sets the mapping of temperature and species IDs to their corresponding indices in the guess list for this reaction.
+        """
+
+        species_list = sorted(self._products) # Sort to ensure consistent ordering
+        self._item_indices = {species: idx for idx, species in enumerate(species_list)}
+        self._item_indices["T"] = len(species_list) # Temperature is the last element in the guess list
+
+
+    def _atom_balance_residual(self, atom: int, initial_count: float, guess: NDArray[float64]) -> float:
 
         """
         :return: The residual for the balance of the given atom for the given guess of species concentrations, calculated as the initial count of the atom minus the count of the atom in the products based on the guess.
         """
         
-        residual = -initial_count
+        residual: float = -initial_count
         for species in self._products:
-            atomic_comp = formula_to_composition(compounds[species].formula)
-            residual += atomic_comp.get(atom, 0) * guess[species_indices[species]]
+            atomic_comp: dict[int, float64] = formula_to_composition(compounds[species].formula)
+            residual += atomic_comp.get(atom, 0) * guess[self._item_indices[species]]
         return residual
     
 
-    def _abr_list(self, initial_atoms: dict[int, float64], guess: NDArray[float64], species_indices: dict[str, int]) -> list[float]:
+    def _abr_list(self, initial_atoms: dict[int, float64], guess: NDArray[float64]) -> list[float]:
 
         """
         :return: A list of the atom balance residuals for each atom present in the reactants for the given guess of species concentrations.
         """
 
-        return [self._atom_balance_residual(atom, count, guess, species_indices) for atom, count in initial_atoms.items()]
+        return [self._atom_balance_residual(atom, count, guess) for atom, count in initial_atoms.items()]
     
 
-    def _equilibrium_residual(self, molecule: str, guess: NDArray[float64], species_indices: dict[str, int]) -> float:
+    def _equilibrium_residual(self, molecule: str, guess: NDArray[float64]) -> float:
 
         """
         :return: The residual for the equilibrium of the dissociation of the given molecule for the given guess of species concentrations.
@@ -274,14 +287,14 @@ class DissociativeReaction:
 
         components = set(compounds[molecule].composition.keys())
         diss_reaction = Dissociation(molecule, components)
-        residual = diss_reaction.equilibrium_residual(guess.tolist(), species_indices, self._pres_bar)
+        residual = diss_reaction.equilibrium_residual(guess.tolist(), self._item_indices, self._pres_bar)
         return residual
     
 
-    def _er_list(self, guess: NDArray[float64], species_indices: dict[str, int]) -> list[float]:
+    def _er_list(self, guess: NDArray[float64]) -> list[float]:
 
-        residuals = []
+        residuals: list[float] = []
         for molecule in self._products:
             if compounds[molecule].composition:
-                residuals.append(self._equilibrium_residual(molecule, guess, species_indices))
+                residuals.append(self._equilibrium_residual(molecule, guess))
         return residuals

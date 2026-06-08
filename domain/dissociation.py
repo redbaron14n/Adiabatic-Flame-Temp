@@ -94,7 +94,7 @@ class Dissociation:
 
         stoich_dict = self._stoich
         mfrm = compounds[self._molecule].formula
-        rfrms = {compounds[r].formula for r in self._radicals}
+        rfrms = {compounds[r].formula for r in (self._radicals & self._nonsolids)}
         return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
