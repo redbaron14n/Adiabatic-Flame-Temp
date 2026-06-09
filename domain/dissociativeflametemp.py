@@ -43,6 +43,8 @@ class DissociativeReaction:
         self._update_fuel_oxi_ratios()
         self._set_init_ratios()
         self._set_bounds()
+        self._set_dissociations()
+        self._set_atomic_comps()
         self._record = []
         self._pass_num = 0
 
@@ -285,6 +287,18 @@ class DissociativeReaction:
         self._item_indices["T"] = len(species_list) # Temperature is the last element in the guess list
 
 
+    def _set_atomic_comps(self):
+
+        self._atomic_comps: dict[str, dict[int, float]] = dict()
+        for species in self._products:
+            self._atomic_comps[species] = {
+                int(atom): float(count)
+                for atom, count in formula_to_composition(
+                    compounds[species].formula
+                ).items()
+            }
+
+
     def _atom_balance_residual(self, atom: int, initial_count: float, guess: NDArray[float64]) -> float:
 
         """
@@ -294,12 +308,13 @@ class DissociativeReaction:
         residual: float = -initial_count
         for species in self._products:
             # atomic_comp: dict[int, float64] = formula_to_composition(compounds[species].formula)
-            atomic_comp = {
-                int(atom): float(count)
-                for atom, count in formula_to_composition(
-                    compounds[species].formula
-                ).items()
-            }
+            # atomic_comp = {
+            #     int(atom): float(count)
+            #     for atom, count in formula_to_composition(
+            #         compounds[species].formula
+            #     ).items()
+            # }
+            atomic_comp = self._atomic_comps[species]
             residual += atomic_comp.get(atom, 0) * 10**(guess[self._item_indices[species]])
         return residual
     
@@ -313,24 +328,36 @@ class DissociativeReaction:
         return [self._atom_balance_residual(atom, count, guess) for atom, count in initial_atoms.items()]
     
 
-    def _equilibrium_residual(self, molecule: str, guess: NDArray[float64]) -> float:
+    def _set_dissociations(self):
 
-        """
-        :return: The residual for the equilibrium of the dissociation of the given molecule for the given guess of species concentrations.
-        """
+        self._dissociations: dict[str, Dissociation] = dict()
+        for molecule in self._products:
+            if compounds[molecule].composition: # Only set dissociation reactions for non-elemental species
+                components = set(compounds[molecule].composition.keys())
+                self._dissociations[molecule] = Dissociation(molecule, components)
 
-        components = set(compounds[molecule].composition.keys())
-        diss_reaction = Dissociation(molecule, components)
-        residual = diss_reaction.equilibrium_residual(guess.tolist(), self._item_indices, self._pres_bar)
-        return residual
+
+    # def _equilibrium_residual(self, molecule: str, guess: NDArray[float64]) -> float:
+
+    #     """
+    #     :return: The residual for the equilibrium of the dissociation of the given molecule for the given guess of species concentrations.
+    #     """
+
+    #     components = set(compounds[molecule].composition.keys())
+    #     diss_reaction = Dissociation(molecule, components)
+    #     residual = diss_reaction.equilibrium_residual(guess.tolist(), self._item_indices, self._pres_bar)
+    #     return residual
     
 
     def _eqr_list(self, guess: NDArray[float64]) -> list[float]:
 
         residuals: list[float] = []
-        for molecule in self._products:
-            if compounds[molecule].composition:
-                residuals.append(self._equilibrium_residual(molecule, guess))
+        # for molecule in self._products:
+        #     if compounds[molecule].composition:
+        #         residuals.append(self._equilibrium_residual(molecule, guess))
+        for diss_reaction in self._dissociations.values():
+            residual = diss_reaction.equilibrium_residual(guess.tolist(), self._item_indices, self._pres_bar)
+            residuals.append(residual)
         return residuals
     
 
@@ -376,13 +403,11 @@ class DissociativeReaction:
         res_list.extend(self._eqr_list(guess))
         res_list.append(self._energy_residual(guess, self._init_ratios[conc_indx]))
 
-        if self._pass_num == 295:
-            pass
+        if self._pass_num % 100 == 0:
+            print(f"Pass {self._pass_num}")
+            print(f"Guess: {guess}")
+            print(res_list)
         self._pass_num += 1
-
-        print(f"Pass {self._pass_num}")
-        print(f"Guess: {guess}")
-        print(res_list)
 
         return res_list
     

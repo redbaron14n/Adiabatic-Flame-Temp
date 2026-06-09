@@ -170,5 +170,5 @@ class Dissociation:
         pressure_factor = self._calc_log_pres_factor(guess, species_indices, pressure_bar)
         ecc = self.get_log_eq_constant(temp)
         # print(f"{self._molecule} dissociation residual calculation: conc_prod={conc_prod}, pressure_factor={pressure_factor}, ecc={ecc}")
-        print(f"{self._molecule}: {10**guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
+        # print(f"{self._molecule}: {10**guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
         return conc_prod + pressure_factor - ecc
