@@ -100,6 +100,15 @@ class Dissociation:
         return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
+    def _calc_gas_moles(self, guess: list[float], species_indices: dict[str, int]) -> float:
+
+        total_moles = 0.0
+        for species, indx in species_indices.items():
+            if (species != "T") and (compounds[species].state != "s"):
+                total_moles += 10**guess[indx]
+        return total_moles
+
+
     def _calc_log_pres_factor(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float) -> float:
 
         """
@@ -113,7 +122,7 @@ class Dissociation:
         exponent = self._calculate_pressure_exponent()
         if isclose(exponent, 0.0):
             return 0.0
-        fraction = pressure_bar / sum(10**guess[species_indices[s]] for s in self._nonsolids)
+        fraction = pressure_bar / self._calc_gas_moles(guess, species_indices)
         return exponent * log10(fraction)
     
 
@@ -169,6 +178,4 @@ class Dissociation:
         conc_prod = self._calc_log_conc_product(guess, species_indices)
         pressure_factor = self._calc_log_pres_factor(guess, species_indices, pressure_bar)
         ecc = self.get_log_eq_constant(temp)
-        # print(f"{self._molecule} dissociation residual calculation: conc_prod={conc_prod}, pressure_factor={pressure_factor}, ecc={ecc}")
-        # print(f"{self._molecule}: {10**guess[species_indices[self._molecule]]} moles, residual: {conc_prod + pressure_factor - ecc}")
         return conc_prod + pressure_factor - ecc
