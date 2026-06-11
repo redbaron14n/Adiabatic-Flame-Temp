@@ -123,3 +123,17 @@ class CombustionReaction:
 
         total = sum(ratio.values())
         return {compound: amount / total for compound, amount in ratio.items()}
+    
+
+    def _calc_init_atoms(self, conc: dict[str, float]) -> dict[int, float]:
+
+        """
+        For given fuel and oxidant concentrations, calculates the initial number of each type of atom in the mixture.
+        """
+
+        init_atoms: dict[int, float] = {}
+        for compound_id, amount in conc.items():
+            compound = compounds[compound_id]
+            for atom, count in compound.atomic_composition().items():
+                init_atoms[atom] = init_atoms.get(atom, 0) + amount * count
+        return init_atoms

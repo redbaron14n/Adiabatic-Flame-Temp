@@ -22,7 +22,7 @@ class DissociativeReaction:
             fuels: dict[str, float],
             oxi: dict[str, float],
             temps: dict[str, float],
-            pres_bar: float = 1.0,
+            pres_bar: float = 1,
             conc_res: int = 100
         ):
 
@@ -276,7 +276,7 @@ class DissociativeReaction:
         products = set(fundamentals)
         for species in fundamentals:
             products.update(compounds[species].dissociates)
-        self._products = products
+        self._products = sorted(products)
 
 
     def _set_item_indices(self):
@@ -415,7 +415,8 @@ class DissociativeReaction:
 
     def equilibrate(self, conc_indx: int) -> OptimizeResult:
 
-        init_guess = [-0.3] * (len(self._item_indices) - 1) + [3000.0] # Initial guess of 0.5 for all species concentrations and 3000 K for temperature; can be adjusted as needed
+        # init_guess = [-0.3] * (len(self._item_indices) - 1) + [3000.0]
+        init_guess = array([-20, -0.4771, -20, -20, -20, -20, -20, -20, -20, -0.1761, 3000.0], dtype=float64)
         equil: OptimizeResult = least_squares(self._residual_list, init_guess, bounds=(self._lower_bounds, self._upper_bounds), args=(conc_indx,), ftol=1e-12, xtol=1e-12, gtol=1e-12, max_nfev=5000)
         
         for species, ratio in self._init_ratios[conc_indx].items():

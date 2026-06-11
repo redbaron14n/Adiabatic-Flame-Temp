@@ -6,6 +6,7 @@
 # ###################
 
 import numpy as np
+from chempy.util.parsing import formula_to_composition
 from numpy.typing import NDArray
 from domain.compound_data import CompoundData
 from scipy.interpolate import BSpline, make_interp_spline
@@ -227,3 +228,18 @@ class Compound:
         max_finite = np.max(list[finite_mask])
         finite_list[~finite_mask] = max_finite * 1e6
         return finite_list
+
+
+    def atomic_composition(self) -> dict[int, float]:
+
+        """
+        Returns the atomic composition of the compound as a dictionary mapping atomic numbers to their respective counts. Sanitizes the chempy output from SymPy numerics.
+        """
+
+        composition = {
+            int(atom): float(count)
+            for atom, count in formula_to_composition(
+                self.formula
+            ).items()
+        }
+        return composition
