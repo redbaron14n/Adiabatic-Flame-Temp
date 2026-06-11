@@ -30,9 +30,6 @@ from numpy import array, float64
 
 # print(test_reaction.equilibrate(1))
 
-test = CombustionReaction(
-    fuels={"Methane": 1.0},
-    oxidants={"Oxygen": 2.0},
-    temps={"Methane": 298.15, "Oxygen": 298.15}
-)
-print(test._conc_list)
+test_array = array([[1.0, 2.3], [4.5, 6.7]], dtype=float64)
+test_vector = array([1.0, 2.3], dtype=float64)
+print(test_array @ test_vector)

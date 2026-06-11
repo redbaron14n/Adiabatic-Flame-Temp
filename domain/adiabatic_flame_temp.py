@@ -5,6 +5,8 @@
 # ###################
 
 from domain.compounds import compounds
+from numpy.typing import NDArray
+import numpy as np
 
 class CombustionReaction:
 
@@ -33,6 +35,7 @@ class CombustionReaction:
         self.temperatures = temps
         self.concentration_resolution = conc_res
         self._set_conc_list()
+        self._set_dependents()
 
 
     ########################################
@@ -114,6 +117,18 @@ class CombustionReaction:
         self._conc_list = conc_list
 
 
+    def _set_dependents(self):
+
+        if "Methane" in self._fuels:
+            self._dependents = ["Methane", "Oxygen", "Water"]
+            self._dep_matr = np.linalg.inv(np.array([[4, 0, 2], [1, 0, 0], [0, 2, 1]]))
+        elif "Hydrogen" in self._fuels:
+            self._dependents = ["Hydrogen", "Oxygen", "Water"]
+            self._dep_matr = np.linalg.inv(np.array([[2, 0, 2], [0, 0, 0], [0, 2, 1]]))
+        else:
+            raise ValueError("Invalid fuel compound.")
+
+
     ########################################
     # Private Methods
     ########################################
@@ -125,15 +140,16 @@ class CombustionReaction:
         return {compound: amount / total for compound, amount in ratio.items()}
     
 
-    def _calc_init_atoms(self, conc: dict[str, float]) -> dict[int, float]:
+    def _calc_init_atoms(self, conc: dict[str, float]) -> NDArray[np.float64]:
 
         """
         For given fuel and oxidant concentrations, calculates the initial number of each type of atom in the mixture.
         """
 
-        init_atoms: dict[int, float] = {}
+        init_atoms: NDArray[np.float64] = np.zeros(len(self._dependents))
         for compound_id, amount in conc.items():
             compound = compounds[compound_id]
-            for atom, count in compound.atomic_composition().items():
-                init_atoms[atom] = init_atoms.get(atom, 0) + amount * count
+            init_atoms[0] += amount * compound.atomic_composition().get(1, 0)
+            init_atoms[1] += amount * compound.atomic_composition().get(6, 0)
+            init_atoms[2] += amount * compound.atomic_composition().get(8, 0)
         return init_atoms
