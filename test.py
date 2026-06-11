@@ -30,6 +30,11 @@ from numpy import array, float64
 
 # print(test_reaction.equilibrate(1))
 
-test_array = array([[1.0, 2.3], [4.5, 6.7]], dtype=float64)
-test_vector = array([1.0, 2.3], dtype=float64)
-print(test_array @ test_vector)
+test = CombustionReaction(
+    fuels = {"Methane": 1},
+    oxidants = {"Oxygen": 1},
+    temps = {"Methane": 298.15, "Oxygen": 298.15},
+    pressure = 1e5
+)
+
+print(test._independents)

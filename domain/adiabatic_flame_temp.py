@@ -4,6 +4,7 @@
 # Adiabatic Flame Temperature Calculator
 # ###################
 
+from config import determine_basic_products
 from domain.compounds import compounds
 from numpy.typing import NDArray
 import numpy as np
@@ -36,6 +37,7 @@ class CombustionReaction:
         self.concentration_resolution = conc_res
         self._set_conc_list()
         self._set_dependents()
+        self._set_independents()
 
 
     ########################################
@@ -127,6 +129,22 @@ class CombustionReaction:
             self._dep_matr = np.linalg.inv(np.array([[2, 0, 2], [0, 0, 0], [0, 2, 1]]))
         else:
             raise ValueError("Invalid fuel compound.")
+        
+
+    def _set_independents(self):
+
+        indeps: set[str] = set()
+        actives = set(self._fuels.keys()).union(set(self._oxidants.keys()))
+        basic_products = determine_basic_products(actives)
+        relevant_compounds = basic_products.union(actives)
+        for compound in relevant_compounds:
+            if compound not in self._dependents:
+                indeps.add(compound)
+            for dissociate in compounds[compound].dissociates:
+                if dissociate not in self._dependents:
+                    indeps.add(dissociate)
+        indeps_list = sorted(indeps)
+        self._independents = indeps_list
 
 
     ########################################
