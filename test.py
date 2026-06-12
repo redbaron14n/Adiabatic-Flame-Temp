@@ -38,3 +38,4 @@ test = CombustionReaction(
 )
 
 print(test._independents)
+print(test._indep_matr)

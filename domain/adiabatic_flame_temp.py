@@ -145,6 +145,19 @@ class CombustionReaction:
                     indeps.add(dissociate)
         indeps_list = sorted(indeps)
         self._independents = indeps_list
+        self._set_indep_matr()
+
+
+    def _set_indep_matr(self):
+
+        shape = (3, len(self._independents))
+        indep_matr: NDArray[np.float64] = np.zeros(shape)
+        for i, indep in enumerate(self._independents):
+            compound = compounds[indep]
+            indep_matr[0, i] = compound.atomic_composition().get(1, 0)
+            indep_matr[1, i] = compound.atomic_composition().get(6, 0)
+            indep_matr[2, i] = compound.atomic_composition().get(8, 0)
+        self._indep_matr = indep_matr
 
 
     ########################################
