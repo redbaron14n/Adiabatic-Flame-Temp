@@ -39,3 +39,4 @@ test = CombustionReaction(
 
 print(test._independents)
 print(test._indep_matr)
+print(test._item_indices)

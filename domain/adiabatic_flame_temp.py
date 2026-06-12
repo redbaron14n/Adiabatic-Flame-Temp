@@ -38,6 +38,7 @@ class CombustionReaction:
         self._set_conc_list()
         self._set_dependents()
         self._set_independents()
+        self._set_item_indices()
 
 
     ########################################
@@ -160,6 +161,18 @@ class CombustionReaction:
         self._indep_matr = indep_matr
 
 
+    def _set_item_indices(self):
+
+        """
+        Allows for consistent indexing of the guess array for the solver, if indexing is ever uncertain. More of a comfort thing.
+        """
+
+        self._item_indices = {item: idx for idx, item in enumerate(self._independents)}
+        self._item_indices["T"] = len(self._independents) # Temperature is the last item in the guess array.
+        offset = len(self._independents) + 1
+        self._item_indices.update({dep: idx + offset for idx, dep in enumerate(self._dependents)})
+
+
     ########################################
     # Private Methods
     ########################################
@@ -184,3 +197,20 @@ class CombustionReaction:
             init_atoms[1] += amount * compound.atomic_composition().get(6, 0)
             init_atoms[2] += amount * compound.atomic_composition().get(8, 0)
         return init_atoms
+    
+
+    def _calc_dependent_qty(self, init_atoms: NDArray[np.float64], input_guess: NDArray[np.float64]) -> NDArray[np.float64], bool:
+
+        """
+        For a given guess of the independent species quantities and temperature, calculates the quantities of the dependent species.
+
+        :param NDArray[np.float64] init_atoms: The initial number of each type of atom in the mixture.
+        :param NDArray[np.float64] input_guess: The current guess of the independent species quantities and temperature, in log form for the species quantities.
+        :return NDArray[np.float64]: The calculated quantities of the dependent species.
+        :return bool: Whether the calculated dependent quantities are physically valid (non-negative).
+        """
+
+        indep_qty_vector = np.zeros(len(self._independents))
+        for i, indep in enumerate(self._independents):
+            indep_qty_vector[i] = 10**input_guess[i] # Convert log quantities to actual quantities.
+        # Not done
