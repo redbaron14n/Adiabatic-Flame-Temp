@@ -237,9 +237,9 @@ class CombustionReaction:
         for i, indep in enumerate(self._independents):
             indep_qty_vector[i] = 10**input_guess[i] # Convert log quantities to actual quantities.
         dep_qty_vector = self._inv_dep_matr @ (init_atoms - (self._indep_matr @ indep_qty_vector))
-        is_valid = bool(np.all(dep_qty_vector >= 0))
         temp_index = self._item_indices["T"]
         true_guess = np.concatenate([indep_qty_vector, [input_guess[temp_index]], dep_qty_vector])
+        is_valid = bool(np.all(true_guess >= 0))
         return true_guess, is_valid
     
 
@@ -247,7 +247,7 @@ class CombustionReaction:
 
         residuals = np.full(len(self._independents), 1000, dtype=np.float64)
         for diss_reaction in self._dissociations.values():
-            resid = diss_reaction.equilibrium_residual(guess.tolist(), self._item_indices, self._pressure) # This currently uses logarithmic quantities. WRONG INPUT TYPE
+            resid = diss_reaction.equilibrium_residual(guess, self._item_indices, self._pressure)
             indx = self._residual_indices[diss_reaction.molecule_id]
             residuals[indx] = resid
         return residuals
@@ -256,7 +256,7 @@ class CombustionReaction:
     def _residual_function(self, conc_idx: int, guess: NDArray[np.float64]) -> NDArray[np.float64]:
 
         """
-        Process input arguments and calculates the residuals for a given concentration index and log guess vector.
+        Process input arguments and calculates the residuals for a given concentration index and guess vector.
         """
 
         conc_dict = self._conc_list[conc_idx]
@@ -266,7 +266,7 @@ class CombustionReaction:
         print(true_guess)
         residual = self._calc_residuals(true_guess)
         print(residual)
-        if not is_valid: # Blow up a non-physical solution
-            min_mag = -np.min(true_guess) # Always positive
-            residual *= 10**(NPS_EXP_FACTOR * min_mag)
+        # if not is_valid: # Blow up a non-physical solution
+        #     min_mag = -np.min(true_guess) # Always positive
+        #     residual *= 10**(NPS_EXP_FACTOR * min_mag)
         return residual

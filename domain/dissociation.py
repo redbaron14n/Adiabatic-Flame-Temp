@@ -9,6 +9,8 @@ from chempy import balance_stoichiometry
 from domain.compound import Compound
 from domain.compounds import compounds, compounds_by_formula
 from math import isclose, log10
+import numpy as np
+from numpy.typing import NDArray
 
 class Dissociation:
 
@@ -71,7 +73,7 @@ class Dissociation:
                 self._nonsolids.add(compound.id)
 
 
-    def _validate_guess(self, guess: list[float], species_indices: dict[str, int]):
+    def _validate_guess(self, guess: NDArray[np.float64], species_indices: dict[str, int]):
 
         if len(guess) != len(species_indices):
             raise ValueError(
@@ -88,7 +90,7 @@ class Dissociation:
             )
 
 
-    def _calculate_pressure_exponent(self) -> float:
+    def _calc_pressure_exp(self) -> float:
 
         """
         Calculates and returns the pressure exponent for the equilibrium residual calculation based on the stoichiometry of the reaction.
@@ -100,7 +102,7 @@ class Dissociation:
         return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
-    def _calc_gas_moles(self, guess: list[float], species_indices: dict[str, int]) -> float:
+    def _calc_gas_moles(self, guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
 
         total_moles = 0.0
         for species, indx in species_indices.items():
@@ -119,7 +121,7 @@ class Dissociation:
         :param float pressure_bar: The total pressure in bars.
         """
 
-        exponent = self._calculate_pressure_exponent()
+        exponent = self._calc_pressure_exp()
         if isclose(exponent, 0.0):
             return 0.0
         fraction = pressure_bar / self._calc_gas_moles(guess, species_indices)
@@ -162,7 +164,7 @@ class Dissociation:
         return ecc
 
 
-    def equilibrium_residual(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float = 1.0) -> float:
+    def log_equilibrium_residual(self, guess: list[float], species_indices: dict[str, int], pressure_bar: float = 1.0) -> float:
 
         """
         Calculates and returns the equilibrium residual for the current guess of species concentrations and temperature at the given pressure.
@@ -179,3 +181,41 @@ class Dissociation:
         pressure_factor = self._calc_log_pres_factor(guess, species_indices, pressure_bar)
         ecc = self.get_log_eq_constant(temp)
         return conc_prod + pressure_factor - ecc
+    
+
+    def _calc_conc_product(self, guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
+
+        product = guess[species_indices[self._molecule]] ** self._stoich[compounds[self._molecule].formula]
+        for species, coeff in self._stoich.items():
+            species = compounds_by_formula[species].id
+            if (species in self._nonsolids) and (species != self._molecule):
+                product /= guess[species_indices[species]] ** coeff
+        return product
+    
+
+    def _calc_pres_factor(self, guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float) -> float:
+
+        exponent = self._calc_pressure_exp()
+        if isclose(exponent, 0.0):
+            return 1.0
+        fraction = pressure / self._calc_gas_moles(guess, species_indices)
+        return fraction ** exponent
+    
+
+    def get_eq_constant(self, temperature: float) -> float:
+
+        log_eq_constant = self.get_log_eq_constant(temperature)
+        return 10**log_eq_constant
+
+
+    def equilibrium_residual(self, guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float = 1e5) -> float:
+
+        self._validate_guess(guess, species_indices)
+        temp = guess[species_indices["T"]]
+        self._validate_temperature(temp)
+        if np.any(guess <= 0):
+            return 100
+        conc_product = self._calc_conc_product(guess, species_indices)
+        pressure_factor = self._calc_pres_factor(guess, species_indices, pressure)
+        ecc = self.get_eq_constant(temp)
+        return conc_product * pressure_factor - ecc
