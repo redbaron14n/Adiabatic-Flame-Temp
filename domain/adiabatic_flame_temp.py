@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from scipy.optimize import fsolve, least_squares, OptimizeResult
 import numpy as np
 
-NPS_EXP_FACTOR: float = 3000 # The factor by which to multiply the exponent of the residual of the non-physical solution. Enforces mass balance. Arbitrary number
+PENALTY_FACTOR: float = 1000
 MIN_LOG: float = -50
 MAX_LOG: float = 5
 MAX_TEMP: float = 6000.0
@@ -342,21 +342,53 @@ class CombustionReaction:
                 continue
             full_log_guess[i] = log10(real_val)
         return full_log_guess
+    
+
+    def _calc_reactant_heat(self, conc_dict: dict[str, float]) -> float:
+
+        reactant_heat: float = 0.0
+        for r in self._reactants:
+            qty = conc_dict[r] # Conc_dicts are in real-space
+            react = compounds[r]
+            entry_temp = self._temperatures[r]
+            reactant_heat += qty*(react.SH(entry_temp) + react.stdHf)
+        return reactant_heat
+    
+
+    def _calc_product_heat(self, full_log_guess: NDArray[np.float64]) -> float:
+
+        temp = full_log_guess[self._item_indices["T"]]
+        product_heat: float = 0.0
+        for p, i in self._item_indices.items():
+            if p == "T":
+                continue
+            qty = 10**full_log_guess[i]
+            prod = compounds[p]
+            product_heat += qty*(prod.SH(temp) + prod.stdHf)
+        return product_heat
+    
+
+    def _calc_energy_residual(self, full_log_guess: NDArray[np.float64], conc_dict: dict[str, float]) -> float:
+
+        reactant_heat = self._calc_reactant_heat(conc_dict)
+        product_heat = self._calc_product_heat(full_log_guess)
+        return product_heat - reactant_heat
 
 
-    def _residual_function(self, init_log_guess: NDArray[np.float64], init_atoms: NDArray[np.float64]) -> NDArray[np.float64]:
+    def _residual_function(self, init_log_guess: NDArray[np.float64], init_atoms: NDArray[np.float64], conc_dict: dict[str, float]) -> NDArray[np.float64]:
 
         full_real_guess = self._calc_guess_vector(init_atoms, init_log_guess)
-        if np.any(full_real_guess < 0): # Set all residuals to a function of the OoB value method
-            most_neg_mag = -np.min(full_real_guess)
-            residuals = np.full(len(init_log_guess), most_neg_mag, dtype=np.float64)
-            return residuals
-        full_log_guess = self._convert_guess_to_log(full_real_guess)
+        # print(f"Full real guess: {full_real_guess}")
+        residual_penalty = 0.0
+        if np.any(full_real_guess < -1e-10): # Set all residuals to a function of the OoB value method
+            residual_penalty = PENALTY_FACTOR * (-np.min(full_real_guess))
+        full_log_guess = self._convert_guess_to_log(np.maximum(full_real_guess, 10**MIN_LOG))
+        print(full_log_guess)
         residuals = np.full(len(init_log_guess), 0.0, dtype=np.float64)
         for comp, diss_obj in self._dissociations.items():
             residuals[self._residual_indices[comp]] = diss_obj.equilibrium_residual(full_log_guess, self._item_indices)
-        # residuals[self._residual_indices["T"]] = self._calc_energy_residual(full_log_guess, self._item_indices)
-        return residuals
+        residuals[self._residual_indices["T"]] = self._calc_energy_residual(full_log_guess, conc_dict)
+        return residuals + residual_penalty
 
 
     ########################################
@@ -364,10 +396,17 @@ class CombustionReaction:
     ########################################
 
 
+    def equilibrate(self, conc_dict: dict[str, float]):
+
+        init_log_guess = self._calc_init_log_guess(conc_dict)
+        init_atoms = self._calc_init_atoms(conc_dict)
+        equil = least_squares(self._residual_function, init_log_guess, args=(init_atoms, conc_dict), bounds=self._bounds, xtol=1e-12)
+        return equil
+
+
+
     def calculate_temperatures(self):
 
         temps: list[float] = []
         for conc_dict in self._conc_list:
-            init_log_guess = self._calc_init_log_guess(conc_dict)
-            init_atoms = self._calc_init_atoms(conc_dict)
-            equil = least_squares(self._residual_function, init_log_guess, args=(init_atoms,), bounds=self._bounds)
+            equil = self.equilibrate(conc_dict)

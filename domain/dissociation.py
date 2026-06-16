@@ -134,7 +134,7 @@ class Dissociation:
 
         exponent = self._calc_pressure_exp()
         if isclose(exponent, 0.0):
-            return 1.0
+            return 0.0
         fraction = pressure / self._calc_gas_moles(log_guess, species_indices)
         return exponent * log10(fraction)
 
