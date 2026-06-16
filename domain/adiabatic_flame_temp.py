@@ -4,14 +4,18 @@
 # Adiabatic Flame Temperature Calculator
 # ###################
 
-from config import determine_basic_products
-from domain.compounds import compounds
+from chempy import balance_stoichiometry
+from config import determine_basic_products, INERTS
+from domain.compounds import compounds, compounds_by_formula
 from domain.dissociation import Dissociation
+from math import log10
 from numpy.typing import NDArray
 from scipy.optimize import fsolve, least_squares, OptimizeResult
 import numpy as np
 
 NPS_EXP_FACTOR: float = 3000 # The factor by which to multiply the exponent of the residual of the non-physical solution. Enforces mass balance. Arbitrary number
+MIN_LOG: float = -50
+INIT_TEMP_GUESS: float = 3000.0
 
 class CombustionReaction:
 
@@ -45,6 +49,7 @@ class CombustionReaction:
         self._set_item_indices()
         self._set_residual_indices()
         self._set_dissociations()
+        self._set_stoich()
         # self._set_bounds()
 
 
@@ -143,7 +148,9 @@ class CombustionReaction:
 
         indeps: set[str] = set()
         actives = set(self._fuels.keys()).union(set(self._oxidants.keys()))
+        self._reactants = actives
         basic_products = determine_basic_products(actives)
+        self._basic_products = basic_products
         relevant_compounds = basic_products.union(actives)
         for compound in relevant_compounds:
             if compound not in self._dependents:
@@ -199,6 +206,24 @@ class CombustionReaction:
                 continue
             components = set(compounds[compound].composition.keys())
             self._dissociations[compound] = Dissociation(compound, components)
+
+
+    def _set_stoich(self):
+
+        reactants = self._reactants
+        products = self._basic_products
+        inerts = reactants & INERTS
+        reactants -= inerts
+        reactant_frmls = {compounds[r].formula for r in reactants}
+        product_frmls = {compounds[p].formula for p in products}
+        dirty_react, dirty_prod = balance_stoichiometry(reactant_frmls, product_frmls)
+        self._stoich: dict[str, float] = {}
+        for r_frml, r_coeff in dirty_react.items():
+            self._stoich[compounds_by_formula[r_frml].id] = int(r_coeff)
+        for p_frml, p_coeff in dirty_prod.items():
+            self._stoich[compounds_by_formula[p_frml].id] = int(p_coeff)
+        for inert in inerts:
+            self._stoich[inert] = 0
 
 
     # def _set_bounds(self):
@@ -274,6 +299,52 @@ class CombustionReaction:
         return residuals
     
 
+    def _calc_extnt_of_react(self, conc_dict: dict[str, float]) -> float:
+
+        reactives = self._reactants - INERTS
+        weighted_conc = {c: conc_dict[c] / self._stoich[c] for c in reactives}
+        return min(weighted_conc.values())
+    
+
+    def _calc_basic_final_amouns(self, conc_dict: dict[str, float], extent: float) -> dict[str, float]:
+
+        """
+        Calculates the final amounts of each compound after reaction if no dissociation were to occur. Used to find a reasonable initial guess.
+        """
+
+        final_amounts: dict[str, float] = {}
+        inerts = self._reactants & INERTS
+        reactants = self._reactants - inerts
+        for r in reactants:
+            coef = self._stoich[r]
+            consumed = extent * coef
+            final_amounts[r] = conc_dict[r] - consumed
+        for i in inerts:
+            final_amounts[i] = conc_dict[i]
+        for p in self._basic_products:
+            coef = self._stoich[p]
+            final_amounts[p] = extent * coef
+        return final_amounts
+    
+
+    def _calc_init_log_guess(self, conc_dict: dict[str, float]) -> NDArray[np.float64]:
+
+        """
+        Calculates the initial log-space guess for the equilibrium calculation. Trimmed to only independents.
+        """
+
+        extent = self._calc_extnt_of_react(conc_dict)
+        basic_final_amounts = self._calc_basic_final_amouns(conc_dict, extent)
+        init_log_guess: NDArray[np.float64] = np.full(len(self._independents) + 1, MIN_LOG, dtype=np.float64)
+        for item in (basic_final_amounts.keys() & self._independents):
+            if basic_final_amounts[item] == 0:
+                init_log_guess[self._item_indices[item]] = MIN_LOG
+            else:
+                init_log_guess[self._item_indices[item]] = log10(basic_final_amounts[item])
+        init_log_guess[self._item_indices["T"]] = INIT_TEMP_GUESS
+        return init_log_guess
+
+
     ########################################
     # Public Methods
     ########################################
@@ -283,5 +354,5 @@ class CombustionReaction:
 
         temps: list[float] = []
         for conc_dict in self._conc_list:
-            init_guess = self._calc_init_guess(conc_dict)
-            equil = least_squares(self._residual_function, init_guess, args=(conc_dict,), bounds=self._bounds)
+            init_log_guess = self._calc_init_log_guess(conc_dict)
+            equil = least_squares(self._residual_function, init_log_guess, args=(conc_dict,), bounds=self._bounds)
