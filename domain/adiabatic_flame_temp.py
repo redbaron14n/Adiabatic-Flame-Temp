@@ -15,6 +15,8 @@ import numpy as np
 
 NPS_EXP_FACTOR: float = 3000 # The factor by which to multiply the exponent of the residual of the non-physical solution. Enforces mass balance. Arbitrary number
 MIN_LOG: float = -50
+MAX_LOG: float = 5
+MAX_TEMP: float = 6000.0
 INIT_TEMP_GUESS: float = 3000.0
 
 class CombustionReaction:
@@ -50,7 +52,7 @@ class CombustionReaction:
         self._set_residual_indices()
         self._set_dissociations()
         self._set_stoich()
-        # self._set_bounds()
+        self._set_bounds()
 
 
     ########################################
@@ -226,11 +228,16 @@ class CombustionReaction:
             self._stoich[inert] = 0
 
 
-    # def _set_bounds(self):
+    def _set_bounds(self):
 
-    #     guess_length = len(self._independents)
-    #     self._lower_bounds: NDArray[np.float64] = np.full(guess_length + 1, 0.0)
-    #     self._upper_bounds: NDArray[np.float64] = np.concatenate((np.full(guess_length, 5.0), np.array([6000.0])))
+        guess_length = len(self._independents) + 1
+        lower_log_bounds = np.full(guess_length - 1, MIN_LOG, dtype=np.float64)
+        upper_log_bounds = np.full(guess_length - 1, MAX_LOG, dtype=np.float64)
+        lower_temp_bound = np.array([0.0], dtype=np.float64)
+        upper_temp_bound = np.array([MAX_TEMP], dtype=np.float64)
+        lower_bounds = np.concatenate((lower_log_bounds, lower_temp_bound))
+        upper_bounds = np.concatenate((upper_log_bounds, upper_temp_bound))
+        self._bounds = (lower_bounds, upper_bounds)
 
 
     ########################################
@@ -259,44 +266,21 @@ class CombustionReaction:
         return init_atoms
     
 
-    def _calc_guess_vector(self, init_atoms: NDArray[np.float64], input_guess: NDArray[np.float64]) -> tuple[NDArray[np.float64], bool]:
+    def _calc_guess_vector(self, init_atoms: NDArray[np.float64], input_log_guess: NDArray[np.float64]) -> NDArray[np.float64]:
 
         """
         For a given guess of the independent species log quantities and temperature, calculates the full intended guess vector, including dependent species quantities.
 
         :param NDArray[np.float64] init_atoms: The initial number of each type of atom in the mixture.
-        :param NDArray[np.float64] input_guess: The current guess of the independent species log quantities and temperature.
+        :param NDArray[np.float64] input_log_guess: The current guess of the independent species log quantities and temperature.
         :return NDArray[np.float64]: The calculated guess vector including dependent species quantities.
-        :return bool: Whether the calculated dependent quantities are physically valid (non-negative).
         """
 
         temp_index = self._residual_indices["T"]
-        indep_qty_vector: NDArray[np.float64] = 10**np.delete(input_guess, temp_index)
+        indep_qty_vector: NDArray[np.float64] = 10**np.delete(input_log_guess, temp_index)
         dep_qty_vector = self._inv_dep_matr @ (init_atoms - (self._indep_matr @ indep_qty_vector))
-        full_guess = np.concatenate([indep_qty_vector, [input_guess[temp_index]], dep_qty_vector])
-        is_valid = bool(np.all(full_guess >= 0))
-        return full_guess, is_valid
-    
-
-    def _calc_equil_residual(self, compound: str, full_guess: NDArray[np.float64], is_valid: bool) -> float:
-
-        if not is_valid:
-            penalty = np.min(full_guess) * 1e4 # Need to go back to log form to make this actually potent
-            return penalty
-        residual = self._dissociations[compound].equilibrium_residual(full_guess, self._item_indices, self._pressure)
-        return residual
-    
-
-    def _residual_function(self, guess, conc_dict):
-
-        init_atoms = self._calc_init_atoms(conc_dict)
-        full_guess, is_valid = self._calc_guess_vector(init_atoms, guess)
-        residuals: NDArray[np.float64] = np.zeros(len(self._residual_indices))
-        for compound in self._independents:
-            residual = self._calc_equil_residual(compound, full_guess, is_valid)
-            residuals[self._residual_indices[compound]] = residual
-        residuals[self._residual_indices["T"]] = self._calc_heat_residual(full_guess, is_valid)
-        return residuals
+        full_real_guess = np.concatenate([indep_qty_vector, [input_log_guess[temp_index]], dep_qty_vector])
+        return full_real_guess
     
 
     def _calc_extnt_of_react(self, conc_dict: dict[str, float]) -> float:
@@ -343,6 +327,31 @@ class CombustionReaction:
                 init_log_guess[self._item_indices[item]] = log10(basic_final_amounts[item])
         init_log_guess[self._item_indices["T"]] = INIT_TEMP_GUESS
         return init_log_guess
+    
+
+    def _convert_guess_to_log(self, full_real_guess: NDArray[np.float64]) -> NDArray[np.float64]:
+
+        full_log_guess: NDArray[np.float64] = np.full(len(full_real_guess), MIN_LOG, dtype=np.float64)
+        for item, i in self._item_indices.items():
+            real_val = full_real_guess[i]
+            if item == "T":
+                full_log_guess[i] = real_val # The only value that is inputted in real-space.
+                continue
+            if real_val == 0:
+                full_log_guess[i] = MIN_LOG
+                continue
+            full_log_guess[i] = log10(real_val)
+        return full_log_guess
+
+
+    def _residual_function(self, init_log_guess: NDArray[np.float64], init_atoms: NDArray[np.float64]) -> NDArray[np.float64]:
+
+        full_real_guess = self._calc_guess_vector(init_atoms, init_log_guess)
+        if np.any(full_real_guess < 0): # Set all residuals to a function of the OoB value method
+            most_neg_mag = -np.min(full_real_guess)
+            residuals = np.full(len(init_log_guess), most_neg_mag, dtype=np.float64)
+            return residuals
+        full_log_guess = self._convert_guess_to_log(full_real_guess)
 
 
     ########################################
@@ -355,4 +364,5 @@ class CombustionReaction:
         temps: list[float] = []
         for conc_dict in self._conc_list:
             init_log_guess = self._calc_init_log_guess(conc_dict)
-            equil = least_squares(self._residual_function, init_log_guess, args=(conc_dict,), bounds=self._bounds)
+            init_atoms = self._calc_init_atoms(conc_dict)
+            equil = least_squares(self._residual_function, init_log_guess, args=(init_atoms,), bounds=self._bounds)
