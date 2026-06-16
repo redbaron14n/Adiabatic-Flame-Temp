@@ -7,7 +7,7 @@
 
 from chempy import balance_stoichiometry
 from domain.compounds import compounds, compounds_by_formula
-from math import isclose
+from math import isclose, log10
 import numpy as np
 from numpy.typing import NDArray
 
@@ -82,18 +82,18 @@ class Dissociation:
     ########################################
 
 
-    def _validate_guess(self, guess: NDArray[np.float64], species_indices: dict[str, int]):
+    def _validate_guess(self, log_guess: NDArray[np.float64], species_indices: dict[str, int]):
 
-        if len(guess) != len(species_indices):
+        if len(log_guess) != len(species_indices):
             raise ValueError(
                 f"Guess list length does not match number of species plus 1.\n"
-                f"Guess: {guess}\n"
+                f"Guess: {log_guess}\n"
                 f"Species Indices: {species_indices}"
             )
         elif not all(species in species_indices for species in ({self._molecule} | self._radicals)):
             raise ValueError(
                 f"Guess list does not contain all species in the reaction.\n"
-                f"Guess: {guess}\n"
+                f"Guess: {log_guess}\n"
                 f"Species Indices: {species_indices}\n"
                 f"Reaction Species: {self._stoich.keys()}"
             )
@@ -111,32 +111,32 @@ class Dissociation:
         return stoich_dict[mfrm] - sum(stoich_dict[r] for r in rfrms)
     
 
-    def _calc_gas_moles(self, guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
+    def _calc_gas_moles(self, log_guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
 
         total_moles = 0.0
         for species, indx in species_indices.items():
             if (species != "T") and (compounds[species].state != "s"):
-                total_moles += guess[indx]
+                total_moles += 10**log_guess[indx]
         return total_moles
         
 
-    def _calc_conc_product(self, guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
+    def _calc_log_conc_product(self, log_guess: NDArray[np.float64], species_indices: dict[str, int]) -> float:
 
-        product = guess[species_indices[self._molecule]] ** self._stoich[compounds[self._molecule].formula]
+        product = log_guess[species_indices[self._molecule]] * self._stoich[compounds[self._molecule].formula]
         for species, coeff in self._stoich.items():
             species = compounds_by_formula[species].id
             if (species in self._nonsolids) and (species != self._molecule):
-                product /= guess[species_indices[species]] ** coeff
+                product -= log_guess[species_indices[species]] * coeff
         return product
     
 
-    def _calc_pres_factor(self, guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float) -> float:
+    def _calc_log_pres_factor(self, log_guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float) -> float:
 
         exponent = self._calc_pressure_exp()
         if isclose(exponent, 0.0):
             return 1.0
-        fraction = pressure / self._calc_gas_moles(guess, species_indices)
-        return fraction ** exponent
+        fraction = pressure / self._calc_gas_moles(log_guess, species_indices)
+        return exponent * log10(fraction)
 
 
     ########################################
@@ -144,18 +144,18 @@ class Dissociation:
     ########################################
     
 
-    def get_eq_constant(self, temperature: float) -> float:
+    def get_log_eq_constant(self, temperature: float) -> float:
 
         compound = compounds[self._molecule]
         log_eq_constant = compound.logKf(temperature)
-        return 10**log_eq_constant
+        return log_eq_constant
 
 
-    def equilibrium_residual(self, guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float = 1e5) -> float:
+    def equilibrium_residual(self, log_guess: NDArray[np.float64], species_indices: dict[str, int], pressure: float = 1e5) -> float:
 
-        self._validate_guess(guess, species_indices)
-        temp = guess[species_indices["T"]]
-        conc_product = self._calc_conc_product(guess, species_indices)
-        pressure_factor = self._calc_pres_factor(guess, species_indices, pressure)
-        ecc = self.get_eq_constant(temp)
-        return conc_product * pressure_factor - ecc
+        self._validate_guess(log_guess, species_indices)
+        temp = log_guess[species_indices["T"]]
+        log_conc_product = self._calc_log_conc_product(log_guess, species_indices)
+        log_pressure_factor = self._calc_log_pres_factor(log_guess, species_indices, pressure)
+        log_ecc = self.get_log_eq_constant(temp)
+        return log_conc_product + log_pressure_factor - log_ecc

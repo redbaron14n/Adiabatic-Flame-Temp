@@ -352,6 +352,11 @@ class CombustionReaction:
             residuals = np.full(len(init_log_guess), most_neg_mag, dtype=np.float64)
             return residuals
         full_log_guess = self._convert_guess_to_log(full_real_guess)
+        residuals = np.full(len(init_log_guess), 0.0, dtype=np.float64)
+        for comp, diss_obj in self._dissociations.items():
+            residuals[self._residual_indices[comp]] = diss_obj.equilibrium_residual(full_log_guess, self._item_indices)
+        # residuals[self._residual_indices["T"]] = self._calc_energy_residual(full_log_guess, self._item_indices)
+        return residuals
 
 
     ########################################
