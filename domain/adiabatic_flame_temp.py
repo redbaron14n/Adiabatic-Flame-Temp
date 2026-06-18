@@ -42,6 +42,7 @@ class CombustionReaction:
         
         self._set_fuels(fuels)
         self._set_oxidants(oxidants)
+        self._set_present_atoms()
         self.pressure = pressure
         self.temperatures = temps
         self.concentration_resolution = conc_res
@@ -78,6 +79,16 @@ class CombustionReaction:
             if amount <= 0:
                 raise ValueError("Oxidant amounts must be positive values.")
         self._oxidants = self._normalize_ratio(oxidants)
+
+
+    def _set_present_atoms(self):
+
+        atoms: set[int] = set()
+        for fuel in self._fuels:
+            atoms.update(compounds[fuel].atomic_composition().keys())
+        for oxidant in self._oxidants:
+            atoms.update(compounds[oxidant].atomic_composition().keys())
+        self._present_atoms: list[int] = sorted(atoms)
 
     
     @property
@@ -140,8 +151,8 @@ class CombustionReaction:
             self._dependents = ["Methane", "Oxygen", "Water"]
             self._inv_dep_matr = np.linalg.inv(np.array([[4, 0, 2], [1, 0, 0], [0, 2, 1]]))
         elif "Hydrogen" in self._fuels:
-            self._dependents = ["Hydrogen", "Oxygen", "Water"]
-            self._inv_dep_matr = np.linalg.inv(np.array([[2, 0, 2], [0, 0, 0], [0, 2, 1]]))
+            self._dependents = ["Hydrogen", "Oxygen"]
+            self._inv_dep_matr = np.linalg.inv(np.array([[2, 0], [0, 2]]))
         else:
             raise ValueError("Invalid fuel compound.")
         
@@ -167,13 +178,12 @@ class CombustionReaction:
 
     def _set_indep_matr(self):
 
-        shape = (3, len(self._independents))
+        shape = (len(self._present_atoms), len(self._independents))
         indep_matr: NDArray[np.float64] = np.zeros(shape)
         for i, indep in enumerate(self._independents):
             compound = compounds[indep]
-            indep_matr[0, i] = compound.atomic_composition().get(1, 0)
-            indep_matr[1, i] = compound.atomic_composition().get(6, 0)
-            indep_matr[2, i] = compound.atomic_composition().get(8, 0)
+            for j, atom in enumerate(self._present_atoms):
+                indep_matr[j, i] = compound.atomic_composition().get(atom, 0)
         self._indep_matr = indep_matr
 
 
@@ -260,9 +270,11 @@ class CombustionReaction:
         init_atoms: NDArray[np.float64] = np.zeros(len(self._dependents))
         for compound_id, amount in conc.items():
             compound = compounds[compound_id]
-            init_atoms[0] += amount * compound.atomic_composition().get(1, 0)
-            init_atoms[1] += amount * compound.atomic_composition().get(6, 0)
-            init_atoms[2] += amount * compound.atomic_composition().get(8, 0)
+            for i, atom in enumerate(self._present_atoms):
+                init_atoms[i] += amount * compound.atomic_composition().get(atom, 0)
+            # init_atoms[0] += amount * compound.atomic_composition().get(1, 0)
+            # init_atoms[1] += amount * compound.atomic_composition().get(6, 0)
+            # init_atoms[2] += amount * compound.atomic_composition().get(8, 0)
         return init_atoms
     
 

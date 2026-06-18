@@ -240,15 +240,13 @@ class Reaction:
     """
     Calculates the flame temperature data points as a function of the variable compound's concentration. Returns as an array
     """
-    def calc_flame_table(self, variable_compound: str, base_concentrations: dict[str, float | int], resolution: int = 100) -> NDArray[np.float64]:
+    def calc_flame_table(self, conc_list: list[dict[str, float]]) -> NDArray[np.float64]:
 
-        concentration_dicts = self._generate_concentrations(
-            variable_compound, base_concentrations, resolution
-        )
-        x_values = []
+        res = len(conc_list)
+        step = 1.0 / (res + 1)
+        x_values = np.linspace(step, 1-step, res)
         flame_temps = []
-        for conc_dict in concentration_dicts:
-            x_values.append(conc_dict[variable_compound])
+        for conc_dict in conc_list:
             flame_temp = self.calc_flame_temp(conc_dict)
             flame_temps.append(flame_temp)
         x_values, flame_temps = np.array(x_values), np.array(flame_temps)
