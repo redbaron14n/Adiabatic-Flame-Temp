@@ -387,20 +387,21 @@ class CombustionReaction:
         return product_heat - reactant_heat
 
 
-    def _residual_function(self, init_log_guess: NDArray[np.float64], init_atoms: NDArray[np.float64], conc_dict: dict[str, float]) -> NDArray[np.float64]:
+    def _residual_function(self, log_guess: NDArray[np.float64], init_atoms: NDArray[np.float64], conc_dict: dict[str, float]) -> NDArray[np.float64]:
 
-        full_real_guess = self._calc_guess_vector(init_atoms, init_log_guess)
+        full_real_guess = self._calc_guess_vector(init_atoms, log_guess)
         # print(f"Full real guess: {full_real_guess}")
-        residual_penalty = 0.0
+        residual_penalty_real = 0.0
         if np.any(full_real_guess < -1e-10): # Set all residuals to a function of the OoB value method
-            residual_penalty = PENALTY_FACTOR * (-np.min(full_real_guess))
-        full_log_guess = self._convert_guess_to_log(np.maximum(full_real_guess, 10**MIN_LOG))
+            residual_penalty_real = PENALTY_FACTOR * (-np.min(full_real_guess))
+        # full_log_guess = self._convert_guess_to_log(np.maximum(full_real_guess, 10**MIN_LOG))
+        full_log_guess = log_guess.append(find_log_dependents(log_guess)) # Pseudocode. Do the real thing
         print(full_log_guess)
-        residuals = np.full(len(init_log_guess), 0.0, dtype=np.float64)
+        residuals_log = np.full(len(log_guess), 0.0, dtype=np.float64)
         for comp, diss_obj in self._dissociations.items():
-            residuals[self._residual_indices[comp]] = diss_obj.equilibrium_residual(full_log_guess, self._item_indices)
-        residuals[self._residual_indices["T"]] = self._calc_energy_residual(full_log_guess, conc_dict)
-        return residuals + residual_penalty
+            residuals_log[self._residual_indices[comp]] = diss_obj.equilibrium_residual(full_log_guess, self._item_indices)
+        residuals_log[self._residual_indices["T"]] = self._calc_energy_residual(full_log_guess, conc_dict)
+        return residuals_log + residual_penalty_real
 
 
     ########################################
